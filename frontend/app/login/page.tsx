@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { AlertCircle, Box } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,8 +12,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
 
@@ -26,58 +27,59 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Giriş başarısız');
+        throw new Error(data.error || 'Giriş başarısız.');
       }
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      window.dispatchEvent(new Event('auth-changed'));
       router.push('/marketplace');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Giriş işlemi tamamlanamadı.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg">
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-stone-50 px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Hoş Geldiniz</h2>
-          <p className="mt-2 text-gray-600">Hesabınıza giriş yapın</p>
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+            <Box className="h-6 w-6" />
+          </div>
+          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950">Giriş yap</h1>
+          <p className="mt-2 text-sm text-slate-600">Katalog, teklif ve AI model akışlarına devam edin.</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="mt-6 flex gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <AlertCircle className="h-5 w-5 shrink-0" />
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              E-posta
-            </label>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">E-posta</label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               placeholder="ornek@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Şifre
-            </label>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Şifre</label>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               placeholder="••••••••"
             />
           </div>
@@ -85,15 +87,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
-            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+            {loading ? 'Giriş yapılıyor...' : 'Giriş yap'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600">
+        <p className="mt-6 text-center text-sm text-slate-600">
           Hesabınız yok mu?{' '}
-          <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/register" className="font-semibold text-emerald-800 hover:text-emerald-900">
             Kayıt olun
           </Link>
         </p>

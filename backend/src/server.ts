@@ -16,13 +16,13 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  credentials: true,
 }));
 
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: { error: 'AI generation limit exceeded' }
+  message: { error: 'AI üretim limiti aşıldı. Lütfen biraz sonra tekrar deneyin.' },
 });
 
 app.use(express.json({ limit: '10mb' }));
@@ -37,7 +37,7 @@ app.use('/api/models', modelRoutes);
 app.use('/api/chat', chatRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server ${PORT} portunda çalışıyor`);
 });
 
 export default app;

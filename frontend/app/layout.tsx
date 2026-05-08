@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import '@uploadthing/react/styles.css';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 
-const inter = Inter({ subsets: ['latin'] });
-
 export const metadata: Metadata = {
-  title: '3D Print Platform',
-  description: 'AI Destekli 3D Baskı Platformu',
+  title: 'PrintForge | 3D Baskı Pazaryeri',
+  description: 'AI destekli 3D model oluşturma, katalog keşfi ve satıcı teklif platformu.',
 };
 
 export default function RootLayout({
@@ -17,9 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="tr">
-      <body className={inter.className}>
+      <body>
         <Navbar />
-        <main className="min-h-screen bg-gray-50">
+        <main className="min-h-screen bg-stone-50">
           {children}
         </main>
       </body>

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 
@@ -18,6 +18,19 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string()
 });
+
+function createToken(userId: string) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+
+  const options: SignOptions = {
+    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'],
+  };
+
+  return jwt.sign({ userId }, secret, options);
+}
 
 router.post('/register', async (req, res) => {
   try {
@@ -48,15 +61,14 @@ router.post('/register', async (req, res) => {
       }
     });
 
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const token = createToken(user.id);
 
     res.status(201).json({ token, user });
   } catch (error: any) {
-    res.status(500).json({ error: 'Registration failed' });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Lütfen geçerli hesap bilgileri girin.' });
+    }
+    res.status(500).json({ error: 'Kayıt işlemi tamamlanamadı.' });
   }
 });
 
@@ -72,11 +84,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET!,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const token = createToken(user.id);
 
     res.json({
       token,
@@ -88,7 +96,10 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error: any) {
-    res.status(500).json({ error: 'Login failed' });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'E-posta veya şifre formatı geçersiz.' });
+    }
+    res.status(500).json({ error: 'Giriş işlemi tamamlanamadı.' });
   }
 });
 

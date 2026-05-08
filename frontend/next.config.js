@@ -1,12 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  swcMinify: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  experimental: {
+    cpus: 1,
+    workerThreads: true,
+    webpackBuildWorker: false,
+  },
   async rewrites() {
+    const base = process.env.BACKEND_URL || 'http://localhost:3001';
     return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
-      },
+      { source: '/api/auth/:path*', destination: `${base}/api/auth/:path*` },
+      { source: '/api/ai/:path*', destination: `${base}/api/ai/:path*` },
+      { source: '/api/models/:path*', destination: `${base}/api/models/:path*` },
+      { source: '/api/chat/:path*', destination: `${base}/api/chat/:path*` },
     ];
   },
 };

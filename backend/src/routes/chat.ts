@@ -1,18 +1,31 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
+const createConversationSchema = z.object({
+  modelId: z.string().min(1),
+  type: z.enum(['AI', 'CATALOG', 'ai', 'catalog']).default('CATALOG'),
+  sellerId: z.string().optional(),
+});
+
+const messageSchema = z.object({
+  content: z.string().trim().min(1).max(2000),
+  isQuote: z.boolean().optional(),
+  quoteAmount: z.coerce.number().positive().optional(),
+});
+
 router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { modelId, type, sellerId } = req.body;
+    const { modelId, type, sellerId } = createConversationSchema.parse(req.body);
     const buyerId = req.user!.id;
 
     const model = await prisma.model.findUnique({
       where: { id: modelId },
-      include: { user: true }
+      include: { user: true },
     });
 
     if (!model) {
@@ -25,8 +38,8 @@ router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
       where: {
         buyerId,
         modelId,
-        sellerId: finalSellerId
-      }
+        sellerId: finalSellerId,
+      },
     });
 
     if (existingConvo) {
@@ -38,9 +51,9 @@ router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
         buyerId,
         sellerId: finalSellerId,
         modelId,
-        modelType: type === 'AI' ? 'AI' : 'CATALOG',
-        status: 'ACTIVE'
-      }
+        modelType: type.toUpperCase() === 'AI' ? 'AI' : 'CATALOG',
+        status: 'ACTIVE',
+      },
     });
 
     await prisma.message.create({
@@ -48,13 +61,15 @@ router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
         conversationId: conversation.id,
         senderId: buyerId,
         content: `Bu model için fiyat teklifi almak istiyorum: ${model.name || modelId}`,
-        isQuote: false
-      }
+        isQuote: false,
+      },
     });
 
     res.json({ conversationId: conversation.id });
-
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Sohbet başlatmak için geçerli model bilgisi gerekli.' });
+    }
     res.status(500).json({ error: 'Sohbet oluşturulamadı' });
   }
 });
@@ -67,10 +82,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id,
-        OR: [
-          { buyerId: userId },
-          { sellerId: userId }
-        ]
+        OR: [{ buyerId: userId }, { sellerId: userId }],
       },
       include: {
         messages: {
@@ -80,26 +92,29 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
               select: {
                 id: true,
                 name: true,
-                role: true
-              }
-            }
-          }
+                role: true,
+              },
+            },
+          },
         },
         model: {
           select: {
             id: true,
             name: true,
             type: true,
-            metadata: true
-          }
+            viewerDataKey: true,
+            priceRangeMin: true,
+            priceRangeMax: true,
+            category: true,
+          },
         },
         buyer: {
-          select: { id: true, name: true }
+          select: { id: true, name: true },
         },
         seller: {
-          select: { id: true, name: true }
-        }
-      }
+          select: { id: true, name: true },
+        },
+      },
     });
 
     if (!conversation) {
@@ -109,7 +124,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
     const isBuyer = conversation.buyerId === userId;
     const participant = isBuyer ? conversation.seller : conversation.buyer;
 
-    const messages = conversation.messages.map(msg => ({
+    const messages = conversation.messages.map((msg) => ({
       id: msg.id,
       senderId: msg.senderId,
       senderName: msg.sender.name,
@@ -117,7 +132,8 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
       content: msg.content,
       timestamp: msg.createdAt,
       isQuote: msg.isQuote,
-      quoteAmount: msg.quoteAmount
+      quoteAmount: msg.quoteAmount,
+      quoteCurrency: msg.quoteCurrency,
     }));
 
     res.json({
@@ -125,15 +141,15 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
       modelId: conversation.modelId,
       modelName: conversation.model.name,
       modelType: conversation.modelType,
+      model: conversation.model,
       participant: {
         id: participant.id,
         name: participant.name,
-        role: 'seller'
+        role: isBuyer ? 'seller' : 'buyer',
       },
       messages,
-      updatedAt: conversation.updatedAt
+      updatedAt: conversation.updatedAt,
     });
-
   } catch (error: any) {
     res.status(500).json({ error: 'Sohbet alınamadı' });
   }
@@ -142,17 +158,14 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/:id/messages', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { content, isQuote, quoteAmount } = req.body;
+    const { content, isQuote, quoteAmount } = messageSchema.parse(req.body);
     const senderId = req.user!.id;
 
     const conversation = await prisma.conversation.findFirst({
       where: {
         id,
-        OR: [
-          { buyerId: senderId },
-          { sellerId: senderId }
-        ]
-      }
+        OR: [{ buyerId: senderId }, { sellerId: senderId }],
+      },
     });
 
     if (!conversation) {
@@ -165,18 +178,18 @@ router.post('/:id/messages', authenticateToken, async (req: AuthRequest, res) =>
         senderId,
         content,
         isQuote: isQuote || false,
-        quoteAmount: quoteAmount || null
+        quoteAmount: quoteAmount || null,
       },
       include: {
         sender: {
-          select: { id: true, name: true, role: true }
-        }
-      }
+          select: { id: true, name: true, role: true },
+        },
+      },
     });
 
     await prisma.conversation.update({
       where: { id },
-      data: { updatedAt: new Date() }
+      data: { updatedAt: new Date() },
     });
 
     res.json({
@@ -187,10 +200,13 @@ router.post('/:id/messages', authenticateToken, async (req: AuthRequest, res) =>
       content: message.content,
       timestamp: message.createdAt,
       isQuote: message.isQuote,
-      quoteAmount: message.quoteAmount
+      quoteAmount: message.quoteAmount,
+      quoteCurrency: message.quoteCurrency,
     });
-
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Mesaj içeriği geçerli değil.' });
+    }
     res.status(500).json({ error: 'Mesaj gönderilemedi' });
   }
 });

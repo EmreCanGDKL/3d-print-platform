@@ -1,20 +1,59 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Box, LogOut, Menu, Plus, UserRound, X } from 'lucide-react';
+
+type StoredUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'USER' | 'SELLER';
+};
+
+const navLinks = [
+  { href: '/marketplace', label: 'Katalog' },
+  { href: '/ai-generator', label: 'AI Olu\u015Ftur' },
+];
 
 export function Navbar() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
-      if (token && userData) {
-        setUser(JSON.parse(userData));
-      }
+  const refreshUser = useCallback(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    if (!token || !userData) {
+      setUser(null);
+      return;
+    }
+
+    try {
+      setUser(JSON.parse(userData) as StoredUser);
+    } catch {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
     }
   }, []);
+
+  useEffect(() => {
+    refreshUser();
+  }, [pathname, refreshUser]);
+
+  useEffect(() => {
+    window.addEventListener('focus', refreshUser);
+    window.addEventListener('storage', refreshUser);
+    window.addEventListener('auth-changed', refreshUser);
+
+    return () => {
+      window.removeEventListener('focus', refreshUser);
+      window.removeEventListener('storage', refreshUser);
+      window.removeEventListener('auth-changed', refreshUser);
+    };
+  }, [refreshUser]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -23,47 +62,126 @@ export function Navbar() {
     window.location.href = '/login';
   };
 
+  const initials = user?.name?.slice(0, 1).toLocaleUpperCase('tr-TR') || 'U';
+  const roleLabel = user?.role === 'SELLER' ? 'Satici' : 'Musteri';
+
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">3D</span>
+    <nav className="sticky top-0 z-50 border-b border-stone-200 bg-white/95 shadow-sm shadow-slate-900/[0.03] backdrop-blur">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4">
+          <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
+              <Box className="h-5 w-5" />
             </div>
-            <span className="font-bold text-xl text-gray-900">Print</span>
+            <div className="leading-tight">
+              <span className="block text-lg font-bold tracking-tight text-slate-950">PrintForge</span>
+              <span className="hidden text-xs text-slate-500 sm:block">3D baski pazaryeri</span>
+            </div>
           </Link>
 
-          <div className="flex items-center gap-6">
-            <Link href="/marketplace" className="text-gray-600 hover:text-gray-900">
-              Katalog
-            </Link>
-            <Link href="/ai-generator" className="text-gray-600 hover:text-gray-900">
-              AI Oluştur
-            </Link>
+          <div className="hidden items-center justify-center gap-7 sm:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-semibold text-slate-600 transition hover:text-slate-950"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
 
+          <div className="flex items-center justify-end gap-2">
             {user ? (
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-700">{user.name}</span>
+              <>
+                {user.role === 'SELLER' && (
+                  <Link
+                    href="/seller/add-product"
+                    className="hidden items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 sm:inline-flex"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Urun ekle
+                  </Link>
+                )}
+                <div className="hidden items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 md:flex">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 leading-tight">
+                    <p className="max-w-36 truncate text-sm font-bold text-slate-950">{user.name}</p>
+                    <p className="text-xs font-medium text-slate-500">{roleLabel}</p>
+                  </div>
+                </div>
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="text-sm text-red-600 hover:text-red-700"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-stone-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-stone-100"
+                  aria-label="Cikis yap"
                 >
-                  Çıkış
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Cikis</span>
                 </button>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-4">
-                <Link href="/login" className="text-gray-600 hover:text-gray-900">
-                  Giriş
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex h-10 items-center rounded-xl border border-stone-300 px-3 text-sm font-semibold text-slate-800 transition hover:bg-stone-100 sm:px-4"
+                >
+                  Giris
                 </Link>
-                <Link href="/register" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-                  Kayıt Ol
+                <Link
+                  href="/register"
+                  className="inline-flex h-10 items-center rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 sm:px-4"
+                >
+                  Kayit ol
                 </Link>
+              </>
+            )}
+
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 sm:hidden"
+              onClick={() => setOpen((value) => !value)}
+              aria-label="Menuyu ac"
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+
+        {open && (
+          <div className="space-y-2 border-t border-stone-200 py-4 sm:hidden">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {user?.role === 'SELLER' && (
+              <Link
+                href="/seller/add-product"
+                onClick={() => setOpen(false)}
+                className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+              >
+                Urun ekle
+              </Link>
+            )}
+            {user && (
+              <div className="rounded-xl bg-stone-100 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 text-slate-500" />
+                  <span className="truncate text-sm font-semibold text-slate-800">{user.name}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{roleLabel}</p>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </nav>
   );

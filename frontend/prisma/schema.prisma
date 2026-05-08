@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  aiModels       Model[]        @relation("UserAIModels")
+  buyerConversations  Conversation[] @relation("Buyer")
+  sellerConversations Conversation[] @relation("Seller")
+  sentMessages   Message[]      @relation("SentMessages")
+
+  @@map("users")
+}
+
+model Model {
+  id          String    @id @default(uuid())
+  userId      String
+  type        String    // "AI" veya "CATALOG"
+  status      String    @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED", "ACTIVE", "INACTIVE"
+  
+  prompt      String?
+  sourceImage String?
+  
+  name        String?
+  description String?
+  category    String?
+  priceRangeMin Int?
+  priceRangeMax Int?
+  
+  originalStorageKey String?
+  viewerDataKey      String
+  
+  vertexCount  Int?
+  volume       Float?
+  surfaceArea  Float?
+  taskId       String?
+  generationType String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation("UserAIModels", fields: [userId], references: [id])
+  conversations Conversation[]
+
+  @@index([userId])
+  @@index([type, status])
+  @@map("models")
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  buyerId   String
+  sellerId  String
+  modelId   String
+  modelType String   // "AI" veya "CATALOG"
+  status    String    @default("ACTIVE") // "ACTIVE", "ARCHIVED", "COMPLETED"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer     User     @relation("Buyer", fields: [buyerId], references: [id])
+  seller    User     @relation("Seller", fields: [sellerId], references: [id])
+  model     Model    @relation(fields: [modelId], references: [id])
+  messages  Message[]
+
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([modelId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  
+  isQuote        Boolean   @default(false)
+  quoteAmount    Float?
+  quoteCurrency  String?   @default("TRY")
+  
+  createdAt      DateTime @default(now())
+  readAt         DateTime?
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@map("messages")
+}

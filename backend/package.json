@@ -2,7 +2,7 @@
     "name": "3d-print-platform-backend",
     "version": "1.0.0",
     "scripts": {
-      "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+      "dev": "ts-node src/server.ts",
       "build": "tsc",
       "start": "node dist/server.js"
     },
