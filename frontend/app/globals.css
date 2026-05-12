@@ -34,3 +34,48 @@ body {
   border: 3px solid #f5f5f4;
   border-radius: 999px;
 }
+
+.desktop-nav,
+.desktop-action,
+.desktop-profile,
+.desktop-text,
+.desktop-subtitle {
+  display: none;
+}
+
+.mobile-menu-trigger {
+  display: inline-flex;
+}
+
+.mobile-nav-panel {
+  display: block;
+}
+
+@media (min-width: 640px) {
+  .desktop-nav {
+    display: flex;
+  }
+
+  .desktop-action {
+    display: inline-flex;
+  }
+
+  .desktop-text {
+    display: inline;
+  }
+
+  .desktop-subtitle {
+    display: block;
+  }
+
+  .mobile-menu-trigger,
+  .mobile-nav-panel {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .desktop-profile {
+    display: flex;
+  }
+}

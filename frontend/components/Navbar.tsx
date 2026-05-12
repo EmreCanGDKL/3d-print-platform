@@ -130,11 +130,11 @@ export function Navbar() {
             </div>
             <div className="leading-tight">
               <span className="block text-lg font-bold tracking-tight text-slate-950">PrintForge</span>
-              <span className="hidden text-xs text-slate-500 sm:block">3D baski pazaryeri</span>
+              <span className="desktop-subtitle text-xs text-slate-500">3D baski pazaryeri</span>
             </div>
           </Link>
 
-          <div className="hidden items-center justify-center gap-7 sm:flex">
+          <div className="desktop-nav items-center justify-center gap-7">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -152,7 +152,7 @@ export function Navbar() {
                 {user.role === 'SELLER' && (
                   <Link
                     href="/seller/add-product"
-                    className="hidden items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 sm:inline-flex"
+                    className="desktop-action items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
                   >
                     <Plus className="h-4 w-4" />
                     Urun ekle
@@ -160,7 +160,7 @@ export function Navbar() {
                 )}
                 <Link
                   href="/orders"
-                  className="relative hidden items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100 sm:inline-flex"
+                  className="desktop-action relative items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100"
                 >
                   {user.role === 'SELLER' ? <Bell className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
                   {user.role === 'SELLER' ? 'Bildirimler' : 'Siparislerim'}
@@ -172,7 +172,7 @@ export function Navbar() {
                 </Link>
                 <Link
                   href="/cart"
-                  className="relative hidden items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100 sm:inline-flex"
+                  className="desktop-action relative items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100"
                 >
                   <ShoppingCart className="h-4 w-4" />
                   Sepet
@@ -182,7 +182,7 @@ export function Navbar() {
                     </span>
                   )}
                 </Link>
-                <div className="hidden items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 md:flex">
+                <div className="desktop-profile items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800">
                     {initials}
                   </div>
@@ -198,7 +198,7 @@ export function Navbar() {
                   aria-label="Cikis yap"
                 >
                   <LogOut className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Cikis</span>
+                  <span className="desktop-text">Cikis</span>
                 </button>
               </>
             ) : (
@@ -220,7 +220,7 @@ export function Navbar() {
 
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 sm:hidden"
+              className="mobile-menu-trigger h-10 w-10 items-center justify-center rounded-xl border border-stone-200"
               onClick={() => setOpen((value) => !value)}
               aria-label="Menuyu ac"
             >
@@ -230,7 +230,7 @@ export function Navbar() {
         </div>
 
         {open && (
-          <div className="space-y-2 border-t border-stone-200 py-4 sm:hidden">
+          <div className="mobile-nav-panel space-y-2 border-t border-stone-200 py-4">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
