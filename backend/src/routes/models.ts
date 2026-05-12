@@ -17,6 +17,19 @@ const productSchema = z.object({
   imageUrls: z.array(z.string().trim().url()).min(1).max(5),
 });
 
+const reviewSchema = z.object({
+  rating: z.coerce.number().int().min(1).max(5),
+  comment: z.string().trim().min(3).max(1000),
+});
+
+const questionSchema = z.object({
+  question: z.string().trim().min(5).max(800),
+});
+
+const answerSchema = z.object({
+  answer: z.string().trim().min(2).max(1000),
+});
+
 function getCatalogImages(model: { sourceImage: string | null; viewerDataKey: string }) {
   if (model.sourceImage) {
     try {
@@ -30,6 +43,19 @@ function getCatalogImages(model: { sourceImage: string | null; viewerDataKey: st
   }
 
   return model.viewerDataKey ? [model.viewerDataKey] : [];
+}
+
+async function getReviewSummary(modelId: string) {
+  const aggregate = await prisma.productReview.aggregate({
+    where: { modelId },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  return {
+    average: Number((aggregate._avg.rating || 0).toFixed(1)),
+    count: aggregate._count.rating,
+  };
 }
 
 router.get('/', async (req, res) => {
@@ -58,31 +84,214 @@ router.get('/', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    const response = models.map((model) => ({
-      id: model.id,
-      name: model.name,
-      description: model.description,
-      category: model.category,
-      priceRangeMin: model.priceRangeMin,
-      priceRangeMax: model.priceRangeMax,
-      modelUrl: model.viewerDataKey,
-      imageUrls: getCatalogImages(model),
-      seller: {
-        id: model.user.id,
-        name: model.user.name,
-        rating: 4.8,
-      },
-      stats: {
-        vertexCount: model.vertexCount,
-        volume: model.volume,
-        surfaceArea: model.surfaceArea,
-      },
-      createdAt: model.createdAt,
-    }));
+    const response = await Promise.all(
+      models.map(async (model) => {
+        const reviewSummary = await getReviewSummary(model.id);
+
+        return {
+          id: model.id,
+          name: model.name,
+          description: model.description,
+          category: model.category,
+          priceRangeMin: model.priceRangeMin,
+          priceRangeMax: model.priceRangeMax,
+          modelUrl: model.viewerDataKey,
+          imageUrls: getCatalogImages(model),
+          ratingAverage: reviewSummary.average,
+          ratingCount: reviewSummary.count,
+          seller: {
+            id: model.user.id,
+            name: model.user.name,
+            rating: 4.8,
+          },
+          stats: {
+            vertexCount: model.vertexCount,
+            volume: model.volume,
+            surfaceArea: model.surfaceArea,
+          },
+          createdAt: model.createdAt,
+        };
+      }),
+    );
 
     res.json(response);
   } catch (error: any) {
     res.status(500).json({ error: 'Modeller alınamadı' });
+  }
+});
+
+router.get('/:modelId/details', async (req, res) => {
+  try {
+    const { modelId } = req.params;
+    const model = await prisma.model.findFirst({
+      where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
+      include: {
+        user: { select: { id: true, name: true } },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          include: { user: { select: { id: true, name: true } } },
+        },
+        questions: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { id: true, name: true } },
+            answerUser: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!model) {
+      return res.status(404).json({ error: 'Urun bulunamadi' });
+    }
+
+    const reviewSummary = await getReviewSummary(model.id);
+
+    res.json({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      category: model.category,
+      price: model.priceRangeMin ?? 0,
+      imageUrls: getCatalogImages(model),
+      ratingAverage: reviewSummary.average,
+      ratingCount: reviewSummary.count,
+      seller: model.user,
+      reviews: model.reviews.map((review) => ({
+        id: review.id,
+        rating: review.rating,
+        comment: review.comment,
+        createdAt: review.createdAt,
+        user: review.user,
+      })),
+      questions: model.questions.map((question) => ({
+        id: question.id,
+        question: question.question,
+        answer: question.answer,
+        answeredAt: question.answeredAt,
+        createdAt: question.createdAt,
+        user: question.user,
+        answerUser: question.answerUser,
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Urun detayi alinamadi' });
+  }
+});
+
+router.post('/:modelId/reviews', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { modelId } = req.params;
+    const body = reviewSchema.parse(req.body);
+
+    const model = await prisma.model.findFirst({
+      where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    if (!model) {
+      return res.status(404).json({ error: 'Urun bulunamadi' });
+    }
+
+    const review = await prisma.productReview.upsert({
+      where: { modelId_userId: { modelId, userId: req.user!.id } },
+      update: { rating: body.rating, comment: body.comment },
+      create: {
+        modelId,
+        userId: req.user!.id,
+        rating: body.rating,
+        comment: body.comment,
+      },
+      include: { user: { select: { id: true, name: true } } },
+    });
+
+    res.status(201).json({ success: true, review });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Yorum ve puan bilgisi gecersiz.' });
+    }
+    res.status(500).json({ error: 'Yorum kaydedilemedi' });
+  }
+});
+
+router.post('/:modelId/questions', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { modelId } = req.params;
+    const body = questionSchema.parse(req.body);
+
+    const model = await prisma.model.findFirst({
+      where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
+      select: { id: true },
+    });
+
+    if (!model) {
+      return res.status(404).json({ error: 'Urun bulunamadi' });
+    }
+
+    const question = await prisma.productQuestion.create({
+      data: {
+        modelId,
+        userId: req.user!.id,
+        question: body.question,
+      },
+      include: { user: { select: { id: true, name: true } } },
+    });
+
+    res.status(201).json({ success: true, question });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Soru metni gecersiz.' });
+    }
+    res.status(500).json({ error: 'Soru kaydedilemedi' });
+  }
+});
+
+router.post('/:modelId/questions/:questionId/answer', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { modelId, questionId } = req.params;
+    const body = answerSchema.parse(req.body);
+
+    const model = await prisma.model.findFirst({
+      where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
+      select: { id: true, userId: true },
+    });
+
+    if (!model) {
+      return res.status(404).json({ error: 'Urun bulunamadi' });
+    }
+
+    if (model.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Bu soruyu sadece urunun saticisi yanitlayabilir.' });
+    }
+
+    const existingQuestion = await prisma.productQuestion.findFirst({
+      where: { id: questionId, modelId },
+      select: { id: true },
+    });
+
+    if (!existingQuestion) {
+      return res.status(404).json({ error: 'Soru bulunamadi' });
+    }
+
+    const question = await prisma.productQuestion.update({
+      where: { id: existingQuestion.id },
+      data: {
+        answer: body.answer,
+        answerUserId: req.user!.id,
+        answeredAt: new Date(),
+      },
+      include: {
+        user: { select: { id: true, name: true } },
+        answerUser: { select: { id: true, name: true } },
+      },
+    });
+
+    res.json({ success: true, question });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Cevap metni gecersiz.' });
+    }
+    res.status(500).json({ error: 'Cevap kaydedilemedi' });
   }
 });
 

@@ -16,6 +16,8 @@ type BackendCatalogModel = {
   priceRangeMax?: number | null;
   priceMin?: number | null;
   priceMax?: number | null;
+  ratingAverage?: number | null;
+  ratingCount?: number | null;
   seller?: {
     id?: string;
     name?: string;
@@ -60,6 +62,8 @@ export default async function MarketplacePage() {
       price: priceMin,
       priceRangeMin: priceMin,
       priceRangeMax: priceMax,
+      ratingAverage: model.ratingAverage ?? 0,
+      ratingCount: model.ratingCount ?? 0,
       seller: { id: model.seller?.id ?? model.user?.id ?? '', name: model.seller?.name ?? model.user?.name ?? 'Satici' },
     };
   });

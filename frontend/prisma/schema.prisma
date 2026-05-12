@@ -20,6 +20,9 @@ model User {
   buyerConversations  Conversation[] @relation("Buyer")
   sellerConversations Conversation[] @relation("Seller")
   sentMessages   Message[]      @relation("SentMessages")
+  productReviews ProductReview[]
+  productQuestions ProductQuestion[] @relation("QuestionAuthor")
+  answeredQuestions ProductQuestion[] @relation("QuestionAnswerer")
 
   @@map("users")
 }
@@ -53,10 +56,51 @@ model Model {
 
   user        User      @relation("UserAIModels", fields: [userId], references: [id])
   conversations Conversation[]
+  reviews     ProductReview[]
+  questions   ProductQuestion[]
 
   @@index([userId])
   @@index([type, status])
   @@map("models")
+}
+
+model ProductReview {
+  id        String   @id @default(uuid())
+  modelId   String
+  userId    String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([modelId, userId])
+  @@index([modelId])
+  @@index([userId])
+  @@map("product_reviews")
+}
+
+model ProductQuestion {
+  id          String   @id @default(uuid())
+  modelId     String
+  userId      String
+  question    String
+  answer      String?
+  answerUserId String?
+  answeredAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  model       Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  user        User     @relation("QuestionAuthor", fields: [userId], references: [id])
+  answerUser  User?    @relation("QuestionAnswerer", fields: [answerUserId], references: [id])
+
+  @@index([modelId])
+  @@index([userId])
+  @@index([answerUserId])
+  @@map("product_questions")
 }
 
 model Conversation {

@@ -12,15 +12,19 @@ import {
   ImageIcon,
   MessageSquare,
   Plus,
+  Send,
   Search,
   ShieldCheck,
   ShoppingCart,
   SlidersHorizontal,
   Sparkles,
+  Star,
   Store,
   Trash2,
   Wand2,
+  X,
 } from 'lucide-react';
+import { addToCart } from '@/lib/cart';
 
 const ModelViewer = dynamic(() => import('@/components/ModelViewer'), {
   ssr: false,
@@ -42,6 +46,8 @@ export type CatalogModel = {
   price: number;
   priceRangeMin: number;
   priceRangeMax: number;
+  ratingAverage: number;
+  ratingCount: number;
   seller: {
     id: string;
     name: string;
@@ -73,7 +79,7 @@ export default function MarketplaceCatalog({ models }: Props) {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [catalogModels, setCatalogModels] = useState(models);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [orderingId, setOrderingId] = useState<string | null>(null);
+  const [detailModelId, setDetailModelId] = useState<string | null>(null);
 
   useEffect(() => {
     setCatalogModels(models);
@@ -123,35 +129,23 @@ export default function MarketplaceCatalog({ models }: Props) {
     router.push(`/chat/new?modelId=${encodeURIComponent(id)}&type=CATALOG`);
   };
 
-  const handleOrder = async (id: string) => {
+  const handleAddToCart = (model: CatalogModel) => {
     const token = localStorage.getItem('token');
-    if (!token || orderingId) {
+    if (!token) {
       if (!token) router.push('/login');
       return;
     }
 
-    setOrderingId(id);
-    try {
-      const response = await fetch('/api/chat/order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ modelId: id }),
-      });
+    const result = addToCart({
+      id: model.id,
+      name: model.name,
+      description: model.description,
+      price: model.price,
+      imageUrl: model.imageUrls[0] || model.modelUrl || '',
+      seller: model.seller,
+    });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Siparis olusturulamadi.');
-      }
-
-      router.push('/orders');
-    } catch (error: any) {
-      window.alert(error.message || 'Siparis olusturulamadi.');
-    } finally {
-      setOrderingId(null);
-    }
+    window.alert(result.added ? 'Urun sepete eklendi.' : 'Bu urun zaten sepetinizde.');
   };
 
   const handleDelete = async (id: string) => {
@@ -361,6 +355,14 @@ export default function MarketplaceCatalog({ models }: Props) {
                       <div>
                         <h3 className="text-lg font-bold text-slate-950">{model.name}</h3>
                         <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{model.description}</p>
+                        <button
+                          type="button"
+                          onClick={() => setDetailModelId(model.id)}
+                          className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:text-emerald-950"
+                        >
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                          {model.ratingCount > 0 ? `${model.ratingAverage.toLocaleString('tr-TR')} (${model.ratingCount} yorum)` : 'Yorumlar ve sorular'}
+                        </button>
                       </div>
                     </div>
 
@@ -389,25 +391,26 @@ export default function MarketplaceCatalog({ models }: Props) {
                           {deletingId === model.id ? 'Kaldiriliyor' : 'Kaldir'}
                         </button>
                       )}
-                      {user?.id !== model.seller.id && (
+                      {user?.role !== 'SELLER' && user?.id !== model.seller.id && (
                         <button
                           type="button"
-                          onClick={() => void handleOrder(model.id)}
-                          disabled={orderingId === model.id}
+                          onClick={() => handleAddToCart(model)}
                           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <ShoppingCart className="h-4 w-4" />
-                          {orderingId === model.id ? 'Aliniyor' : 'Satin al'}
+                          Sepete ekle
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleMessage(model.id)}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Saticiya yaz
-                      </button>
+                      {user?.role !== 'SELLER' && (
+                        <button
+                          type="button"
+                          onClick={() => handleMessage(model.id)}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Saticiya yaz
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -416,6 +419,13 @@ export default function MarketplaceCatalog({ models }: Props) {
           )}
         </section>
       </div>
+      {detailModelId && (
+        <ProductDetailModal
+          modelId={detailModelId}
+          currentUser={user}
+          onClose={() => setDetailModelId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -425,6 +435,329 @@ function Metric({ value, label }: { value: string; label: string }) {
     <div className="rounded-2xl border border-stone-200 bg-white p-4 text-center">
       <p className="text-2xl font-bold text-slate-950">{value}</p>
       <p className="mt-1 text-xs font-medium text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+type ProductDetail = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  price: number;
+  imageUrls: string[];
+  ratingAverage: number;
+  ratingCount: number;
+  seller: {
+    id: string;
+    name: string;
+  };
+  reviews: Array<{
+    id: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+    user: { id: string; name: string };
+  }>;
+  questions: Array<{
+    id: string;
+    question: string;
+    answer?: string | null;
+    createdAt: string;
+    user: { id: string; name: string };
+    answerUser?: { id: string; name: string } | null;
+  }>;
+};
+
+function ProductDetailModal({
+  modelId,
+  currentUser,
+  onClose,
+}: {
+  modelId: string;
+  currentUser: StoredUser | null;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<ProductDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [question, setQuestion] = useState('');
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadDetail = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/models/${modelId}/details`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Urun detayi alinamadi.');
+      setDetail(data);
+    } catch (err: any) {
+      setError(err.message || 'Urun detayi alinamadi.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelId]);
+
+  const token = typeof window === 'undefined' ? null : localStorage.getItem('token');
+  const isSeller = Boolean(currentUser && detail?.seller.id === currentUser.id);
+
+  const submitQuestion = async () => {
+    if (!token || !question.trim() || submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/models/${modelId}/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Soru kaydedilemedi.');
+      setQuestion('');
+      await loadDetail();
+    } catch (err: any) {
+      setError(err.message || 'Soru kaydedilemedi.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitReview = async () => {
+    if (!token || !comment.trim() || submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/models/${modelId}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating, comment }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Yorum kaydedilemedi.');
+      setComment('');
+      setRating(5);
+      await loadDetail();
+    } catch (err: any) {
+      setError(err.message || 'Yorum kaydedilemedi.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitAnswer = async (questionId: string) => {
+    const answer = answerDrafts[questionId]?.trim();
+    if (!token || !answer || submitting) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/models/${modelId}/questions/${questionId}/answer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ answer }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Cevap kaydedilemedi.');
+      setAnswerDrafts((items) => ({ ...items, [questionId]: '' }));
+      await loadDetail();
+    } catch (err: any) {
+      setError(err.message || 'Cevap kaydedilemedi.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/50 p-4">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">{detail?.name || 'Urun detayi'}</h2>
+            {detail && (
+              <p className="mt-1 text-sm text-slate-600">
+                TL {detail.price.toLocaleString('tr-TR')} - {detail.seller.name}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 text-slate-700 hover:bg-stone-100"
+            aria-label="Kapat"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="p-8 text-sm font-semibold text-slate-600">Urun detayi yukleniyor...</div>
+        ) : detail ? (
+          <div className="grid gap-6 p-5 lg:grid-cols-[320px_1fr]">
+            <div>
+              <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
+                {detail.imageUrls[0] ? (
+                  <img src={detail.imageUrls[0]} alt={detail.name || 'Urun'} className="aspect-square w-full object-cover" />
+                ) : (
+                  <div className="flex aspect-square items-center justify-center text-sm text-slate-500">Gorsel yok</div>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {detail.imageUrls.slice(1).map((image) => (
+                  <img key={image} src={image} alt="" className="aspect-square rounded-xl border border-stone-200 object-cover" />
+                ))}
+              </div>
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                  <span className="text-xl font-bold text-slate-950">
+                    {detail.ratingCount > 0 ? detail.ratingAverage.toLocaleString('tr-TR') : 'Yeni'}
+                  </span>
+                  <span className="text-sm text-slate-600">{detail.ratingCount} yorum</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
+
+              <section>
+                <h3 className="text-base font-bold text-slate-950">Soru ve cevaplar</h3>
+                {token && !isSeller && (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={question}
+                      onChange={(event) => setQuestion(event.target.value)}
+                      placeholder="Urun hakkinda soru sorun"
+                      className="h-11 flex-1 rounded-xl border border-stone-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void submitQuestion()}
+                      disabled={!question.trim() || submitting}
+                      className="inline-flex h-11 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      <Send className="h-4 w-4" />
+                      Sor
+                    </button>
+                  </div>
+                )}
+                <div className="mt-4 space-y-3">
+                  {detail.questions.length === 0 ? (
+                    <p className="rounded-xl bg-stone-50 p-4 text-sm text-slate-600">Henuz soru yok.</p>
+                  ) : (
+                    detail.questions.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-stone-200 p-4">
+                        <p className="text-sm font-semibold text-slate-950">Soru: {item.question}</p>
+                        <p className="mt-1 text-xs text-slate-500">{item.user.name}</p>
+                        {item.answer ? (
+                          <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
+                            <span className="font-bold">Satici cevabi:</span> {item.answer}
+                          </div>
+                        ) : isSeller ? (
+                          <div className="mt-3 flex gap-2">
+                            <input
+                              value={answerDrafts[item.id] || ''}
+                              onChange={(event) => setAnswerDrafts((items) => ({ ...items, [item.id]: event.target.value }))}
+                              placeholder="Cevap yazin"
+                              className="h-10 flex-1 rounded-xl border border-stone-300 px-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void submitAnswer(item.id)}
+                              disabled={!answerDrafts[item.id]?.trim() || submitting}
+                              className="rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                              Cevapla
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-slate-500">Satici henuz cevaplamadi.</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-base font-bold text-slate-950">Yorumlar ve puan</h3>
+                {token && !isSeller && (
+                  <div className="mt-3 rounded-xl border border-stone-200 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setRating(value)}
+                          className="text-amber-400"
+                          aria-label={`${value} puan`}
+                        >
+                          <Star className={`h-6 w-6 ${value <= rating ? 'fill-amber-400' : ''}`} />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={comment}
+                      onChange={(event) => setComment(event.target.value)}
+                      placeholder="Yorumunuzu yazin"
+                      rows={3}
+                      className="mt-3 w-full rounded-xl border border-stone-300 p-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void submitReview()}
+                      disabled={!comment.trim() || submitting}
+                      className="mt-3 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      Yorumu kaydet
+                    </button>
+                  </div>
+                )}
+                <div className="mt-4 space-y-3">
+                  {detail.reviews.length === 0 ? (
+                    <p className="rounded-xl bg-stone-50 p-4 text-sm text-slate-600">Henuz yorum yok.</p>
+                  ) : (
+                    detail.reviews.map((review) => (
+                      <div key={review.id} className="rounded-xl border border-stone-200 p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-950">{review.user.name}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            {review.rating}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-700">{review.comment}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        ) : (
+          <div className="p-8 text-sm text-red-700">Urun detayi acilamadi.</div>
+        )}
+      </div>
     </div>
   );
 }
