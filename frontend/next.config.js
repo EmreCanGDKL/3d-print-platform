@@ -11,15 +11,6 @@ const nextConfig = {
     workerThreads: true,
     webpackBuildWorker: false,
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/login',
-        permanent: false,
-      },
-    ];
-  },
   async rewrites() {
     const base = process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
     if (!base) return [];

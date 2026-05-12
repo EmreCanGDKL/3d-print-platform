@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Box, LogOut, Menu, Plus, UserRound, X } from 'lucide-react';
+import { Bell, Box, LogOut, Menu, Plus, ShoppingBag, UserRound, X } from 'lucide-react';
 
 type StoredUser = {
   id: string;
@@ -20,6 +21,7 @@ const navLinks = [
 export function Navbar() {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const pathname = usePathname();
 
   const refreshUser = useCallback(() => {
@@ -44,6 +46,36 @@ export function Navbar() {
   }, [pathname, refreshUser]);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) {
+      setNotificationCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch('/api/chat/notifications/summary', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { total?: number };
+        if (!cancelled) setNotificationCount(data.total || 0);
+      } catch {
+        if (!cancelled) setNotificationCount(0);
+      }
+    };
+
+    void loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [pathname, user]);
+
+  useEffect(() => {
     window.addEventListener('focus', refreshUser);
     window.addEventListener('storage', refreshUser);
     window.addEventListener('auth-changed', refreshUser);
@@ -62,6 +94,15 @@ export function Navbar() {
     window.location.href = '/login';
   };
 
+  const handleLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    setOpen(false);
+    if (pathname === '/') {
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.history.replaceState(null, '', '/');
+    }
+  };
+
   const initials = user?.name?.slice(0, 1).toLocaleUpperCase('tr-TR') || 'U';
   const roleLabel = user?.role === 'SELLER' ? 'Satici' : 'Musteri';
 
@@ -69,7 +110,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-stone-200 bg-white/95 shadow-sm shadow-slate-900/[0.03] backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4">
-          <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+          <Link href="/" className="flex items-center gap-3" onClick={handleLogoClick}>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
               <Box className="h-5 w-5" />
             </div>
@@ -103,6 +144,18 @@ export function Navbar() {
                     Urun ekle
                   </Link>
                 )}
+                <Link
+                  href="/orders"
+                  className="relative hidden items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100 sm:inline-flex"
+                >
+                  {user.role === 'SELLER' ? <Bell className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                  {user.role === 'SELLER' ? 'Bildirimler' : 'Siparislerim'}
+                  {notificationCount > 0 && (
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                      {notificationCount > 9 ? '9+' : notificationCount}
+                    </span>
+                  )}
+                </Link>
                 <div className="hidden items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 md:flex">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800">
                     {initials}
@@ -169,6 +222,20 @@ export function Navbar() {
                 className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
               >
                 Urun ekle
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/orders"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+              >
+                <span>{user.role === 'SELLER' ? 'Bildirimler' : 'Siparislerim'}</span>
+                {notificationCount > 0 && (
+                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </span>
+                )}
               </Link>
             )}
             {user && (

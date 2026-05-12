@@ -9,13 +9,16 @@ import {
   BadgeCheck,
   Box,
   Clock3,
+  ImageIcon,
   MessageSquare,
   Plus,
   Search,
   ShieldCheck,
+  ShoppingCart,
   SlidersHorizontal,
   Sparkles,
   Store,
+  Trash2,
   Wand2,
 } from 'lucide-react';
 
@@ -35,6 +38,8 @@ export type CatalogModel = {
   category: string;
   categoryLabel: string;
   modelUrl: string;
+  imageUrls: string[];
+  price: number;
   priceRangeMin: number;
   priceRangeMax: number;
   seller: {
@@ -66,6 +71,13 @@ export default function MarketplaceCatalog({ models }: Props) {
   const [category, setCategory] = useState('all');
   const [maxPrice, setMaxPrice] = useState('');
   const [user, setUser] = useState<StoredUser | null>(null);
+  const [catalogModels, setCatalogModels] = useState(models);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [orderingId, setOrderingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCatalogModels(models);
+  }, [models]);
 
   useEffect(() => {
     const raw = localStorage.getItem('user');
@@ -79,36 +91,97 @@ export default function MarketplaceCatalog({ models }: Props) {
 
   const categories = useMemo(() => {
     const unique = new Map<string, string>();
-    models.forEach((model) => {
+    catalogModels.forEach((model) => {
       if (model.category) unique.set(model.category, model.categoryLabel || model.category);
     });
     const items = Array.from(unique.entries()).map(([value, label]) => ({ value, label }));
     return items.length > 0 ? items : fallbackCategories;
-  }, [models]);
+  }, [catalogModels]);
 
   const filteredModels = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('tr-TR');
     const priceLimit = Number(maxPrice);
 
-    return models.filter((model) => {
+    return catalogModels.filter((model) => {
       const matchesQuery =
         !normalizedQuery ||
         model.name.toLocaleLowerCase('tr-TR').includes(normalizedQuery) ||
         model.description.toLocaleLowerCase('tr-TR').includes(normalizedQuery) ||
         model.seller.name.toLocaleLowerCase('tr-TR').includes(normalizedQuery);
       const matchesCategory = category === 'all' || model.category === category;
-      const matchesPrice = !Number.isFinite(priceLimit) || priceLimit <= 0 || model.priceRangeMin <= priceLimit;
+      const matchesPrice = !Number.isFinite(priceLimit) || priceLimit <= 0 || model.price <= priceLimit;
       return matchesQuery && matchesCategory && matchesPrice;
     });
-  }, [category, maxPrice, models, query]);
+  }, [catalogModels, category, maxPrice, query]);
 
-  const handleQuote = (id: string) => {
+  const handleMessage = (id: string) => {
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
       return;
     }
     router.push(`/chat/new?modelId=${encodeURIComponent(id)}&type=CATALOG`);
+  };
+
+  const handleOrder = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token || orderingId) {
+      if (!token) router.push('/login');
+      return;
+    }
+
+    setOrderingId(id);
+    try {
+      const response = await fetch('/api/chat/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ modelId: id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Siparis olusturulamadi.');
+      }
+
+      router.push('/orders');
+    } catch (error: any) {
+      window.alert(error.message || 'Siparis olusturulamadi.');
+    } finally {
+      setOrderingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token || deletingId) {
+      if (!token) router.push('/login');
+      return;
+    }
+
+    const confirmed = window.confirm('Bu urunu katalogdan kaldirmak istiyor musunuz?');
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/models/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Urun kaldirilamadi.');
+      }
+
+      setCatalogModels((items) => items.filter((item) => item.id !== id));
+    } catch (error: any) {
+      window.alert(error.message || 'Urun kaldirilamadi.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const clearFilters = () => {
@@ -128,10 +201,10 @@ export default function MarketplaceCatalog({ models }: Props) {
                 Dogrulanmis 3D baski pazaryeri
               </div>
               <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-                Uretime hazir modelleri kesfet, saticidan hizli teklif al.
+                Uretime hazir urunleri kesfet, sabit fiyatla saticiya ulas.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700">
-                Katalogdaki 3D modelleri filtreleyin, onizlemeyle inceleyin ve ihtiyaciniza uygun uretim teklifini tek ekrandan baslatin.
+                Katalogdaki urunleri filtreleyin, gorsellerle inceleyin ve sabit fiyat bilgisini net sekilde gorun.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 {user?.role === 'SELLER' ? (
@@ -164,18 +237,18 @@ export default function MarketplaceCatalog({ models }: Props) {
 
             <div className="rounded-3xl border border-white/80 bg-white/85 p-5 shadow-xl shadow-slate-900/10 backdrop-blur">
               <div className="grid grid-cols-3 gap-3">
-                <Metric value={models.length.toString()} label="aktif urun" />
+                <Metric value={catalogModels.length.toString()} label="aktif urun" />
                 <Metric value={categories.length.toString()} label="kategori" />
-                <Metric value="48s" label="teklif hedefi" />
+                <Metric value="Sabit" label="fiyat modeli" />
               </div>
               <div className="mt-4 grid gap-3 text-sm text-slate-700">
                 <div className="flex items-center gap-3 rounded-2xl bg-stone-50 p-3">
                   <BadgeCheck className="h-5 w-5 text-emerald-700" />
-                  Satici bilgisi ve fiyat araligi kartlarda gorunur.
+                  Satici bilgisi ve tek fiyat kartlarda gorunur.
                 </div>
                 <div className="flex items-center gap-3 rounded-2xl bg-stone-50 p-3">
                   <MessageSquare className="h-5 w-5 text-emerald-700" />
-                  Teklif sureci dogrudan sohbet akisi ile baslar.
+                  Pazarlik yerine net fiyat ve mesaj akisi kullanilir.
                 </div>
               </div>
             </div>
@@ -240,9 +313,9 @@ export default function MarketplaceCatalog({ models }: Props) {
 
           <div className="mt-6 rounded-2xl bg-slate-950 p-4 text-white">
             <Clock3 className="h-5 w-5 text-emerald-200" />
-            <p className="mt-3 text-sm font-semibold">Profesyonel teklif akisi</p>
+            <p className="mt-3 text-sm font-semibold">Net fiyat akisi</p>
             <p className="mt-1 text-xs leading-5 text-slate-300">
-              Modeli secin, saticiya notunuzu iletin, fiyat ve teslim detayini sohbetten takip edin.
+              Urunu secin, saticiya notunuzu iletin, teslim detayini sohbetten takip edin.
             </p>
           </div>
         </aside>
@@ -276,7 +349,7 @@ export default function MarketplaceCatalog({ models }: Props) {
                   className="grid overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:grid-cols-[220px_1fr]"
                 >
                   <div className="relative h-56 bg-stone-100 md:h-full">
-                    <ModelViewer src={model.modelUrl} className="h-full w-full" />
+                    <ProductMedia model={model} />
                     {model.categoryLabel ? (
                       <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
                         {model.categoryLabel}
@@ -303,18 +376,37 @@ export default function MarketplaceCatalog({ models }: Props) {
 
                     <div className="mt-auto flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xl font-bold text-slate-950">
-                        TL {model.priceRangeMin.toLocaleString('tr-TR')}
-                        {model.priceRangeMax !== model.priceRangeMin
-                          ? ` - TL ${model.priceRangeMax.toLocaleString('tr-TR')}`
-                          : ''}
+                        TL {model.price.toLocaleString('tr-TR')}
                       </span>
+                      {user?.id === model.seller.id && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(model.id)}
+                          disabled={deletingId === model.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deletingId === model.id ? 'Kaldiriliyor' : 'Kaldir'}
+                        </button>
+                      )}
+                      {user?.id !== model.seller.id && (
+                        <button
+                          type="button"
+                          onClick={() => void handleOrder(model.id)}
+                          disabled={orderingId === model.id}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          {orderingId === model.id ? 'Aliniyor' : 'Satin al'}
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => handleQuote(model.id)}
+                        onClick={() => handleMessage(model.id)}
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
                       >
                         <MessageSquare className="h-4 w-4" />
-                        Teklif al
+                        Saticiya yaz
                       </button>
                     </div>
                   </div>
@@ -333,6 +425,38 @@ function Metric({ value, label }: { value: string; label: string }) {
     <div className="rounded-2xl border border-stone-200 bg-white p-4 text-center">
       <p className="text-2xl font-bold text-slate-950">{value}</p>
       <p className="mt-1 text-xs font-medium text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function ProductMedia({ model }: { model: CatalogModel }) {
+  const images = model.imageUrls?.filter(Boolean) ?? [];
+
+  if (images.length > 0) {
+    return (
+      <div className="h-full w-full">
+        <img
+          src={images[0]}
+          alt={model.name}
+          className="h-full w-full object-cover"
+        />
+        {images.length > 1 ? (
+          <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+            <ImageIcon className="h-3.5 w-3.5" />
+            {images.length} gorsel
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (model.modelUrl) {
+    return <ModelViewer src={model.modelUrl} className="h-full w-full" />;
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-stone-100 text-sm font-medium text-slate-500">
+      Gorsel yok
     </div>
   );
 }
@@ -381,9 +505,9 @@ function EmptyCatalog({ isSeller }: { isSeller: boolean }) {
           <p className="text-sm font-semibold text-emerald-200">Katalog nasil dolacak?</p>
           <div className="mt-6 space-y-5">
             {[
-              ['1', 'Satici GLB/GLTF modelini yukler.'],
-              ['2', 'Model karti fiyat araligi ve kategoriyle yayina cikar.'],
-              ['3', 'Musteri teklif alarak sohbeti baslatir.'],
+              ['1', 'Satici urun gorsellerini yukler.'],
+              ['2', 'Urun karti tek fiyat ve kategoriyle yayina cikar.'],
+              ['3', 'Musteri sabit fiyati gorup saticiya mesaj atar.'],
             ].map(([step, text]) => (
               <div key={step} className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-slate-950">

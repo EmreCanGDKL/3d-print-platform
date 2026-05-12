@@ -57,6 +57,7 @@ export default function Chat() {
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
 
   const isSeller = currentUser?.role === 'SELLER';
+  const canSendQuote = isSeller && conversation?.modelType !== 'CATALOG';
 
   useEffect(() => {
     const rawUser = localStorage.getItem('user');
@@ -162,8 +163,8 @@ export default function Chat() {
         },
         body: JSON.stringify({
           content: newMessage.trim(),
-          isQuote: isSeller && Number.isFinite(amount) && amount > 0,
-          quoteAmount: isSeller && Number.isFinite(amount) && amount > 0 ? amount : undefined,
+          isQuote: canSendQuote && Number.isFinite(amount) && amount > 0,
+          quoteAmount: canSendQuote && Number.isFinite(amount) && amount > 0 ? amount : undefined,
         }),
       });
       const data = await response.json();
@@ -258,7 +259,7 @@ export default function Chat() {
         </div>
 
         <div className="border-t border-stone-200 bg-white p-4">
-          {isSeller && (
+          {canSendQuote && (
             <div className="mb-3 max-w-xs">
               <label className="mb-1 block text-xs font-semibold text-slate-600">Teklif tutarı (opsiyonel)</label>
               <input

@@ -7,10 +7,10 @@ import { UploadDropzone } from "@/utils/uploadthing";
 
 const CATEGORIES = [
   { value: "art", label: "Sanat & dekor" },
-  { value: "functional", label: "Fonksiyonel parçalar" },
-  { value: "figurine", label: "Figürler" },
-  { value: "mechanical", label: "Mekanik parçalar" },
-  { value: "jewelry", label: "Aksesuar / mücevher" },
+  { value: "functional", label: "Fonksiyonel parcalar" },
+  { value: "figurine", label: "Figurler" },
+  { value: "mechanical", label: "Mekanik parcalar" },
+  { value: "jewelry", label: "Aksesuar / mucevher" },
 ];
 
 type StoredUser = {
@@ -23,8 +23,7 @@ export default function AddProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("art");
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
+  const [price, setPrice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -47,31 +46,32 @@ export default function AddProductPage() {
   }, [router]);
 
   const pricePreview = useMemo(() => {
-    const min = Number(priceMin);
-    const max = Number(priceMax);
-    if (!Number.isFinite(min) || min <= 0) return "Fiyat aralığı girin";
-    if (!Number.isFinite(max) || max <= 0 || max === min) return `₺${min.toLocaleString("tr-TR")}`;
-    return `₺${Math.min(min, max).toLocaleString("tr-TR")} - ₺${Math.max(min, max).toLocaleString("tr-TR")}`;
-  }, [priceMax, priceMin]);
+    const amount = Number(price);
+    if (!Number.isFinite(amount) || amount <= 0) return "Fiyat girin";
+    return `TL ${amount.toLocaleString("tr-TR")}`;
+  }, [price]);
 
   const validateForm = () => {
-    const min = Number(priceMin);
-    const max = Number(priceMax || priceMin);
+    const amount = Number(price);
 
-    if (!name.trim()) return "Ürün adı zorunludur.";
-    if (description.trim().length < 20) return "Açıklama en az 20 karakter olmalıdır.";
-    if (!Number.isFinite(min) || min <= 0) return "Geçerli bir minimum fiyat girin.";
-    if (!Number.isFinite(max) || max <= 0) return "Geçerli bir maksimum fiyat girin.";
+    if (!name.trim()) return "Urun adi zorunludur.";
+    if (description.trim().length < 10) return "Aciklama en az 10 karakter olmalidir.";
+    if (!Number.isFinite(amount) || amount <= 0) return "Gecerli bir fiyat girin.";
     return "";
   };
 
-  const saveToDatabase = async (uploadedUrl: string) => {
+  const saveToDatabase = async (uploadedUrls: string[]) => {
     setError("");
     setSuccess("");
 
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      return;
+    }
+
+    if (uploadedUrls.length === 0) {
+      setError("En az bir urun gorseli yukleyin.");
       return;
     }
 
@@ -94,22 +94,21 @@ export default function AddProductPage() {
           name: name.trim(),
           description: description.trim(),
           category,
-          priceMin: Number(priceMin),
-          priceMax: Number(priceMax || priceMin),
-          fileUrl: uploadedUrl,
+          price: Number(price),
+          imageUrls: uploadedUrls,
         }),
       });
 
       const data = (await response.json()) as { success?: boolean; error?: string; message?: string };
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || "Ürün kaydedilemedi.");
+        throw new Error(data.error || data.message || "Urun kaydedilemedi.");
       }
 
-      setSuccess("Ürün başarıyla kataloğa eklendi. Yönlendiriliyorsunuz...");
+      setSuccess("Urun basariyla kataloga eklendi. Yonlendiriliyorsunuz...");
       router.push("/marketplace");
     } catch (err: any) {
-      setError(err.message || "Sunucuya bağlanılamadı.");
+      setError(err.message || "Sunucuya baglanilamadi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -120,9 +119,9 @@ export default function AddProductPage() {
       <div className="mx-auto flex min-h-[520px] max-w-2xl items-center justify-center px-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center shadow-sm">
           <AlertCircle className="mx-auto h-10 w-10 text-amber-600" />
-          <h1 className="mt-4 text-xl font-semibold text-slate-950">Satıcı hesabı gerekli</h1>
+          <h1 className="mt-4 text-xl font-semibold text-slate-950">Satici hesabi gerekli</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Ürün eklemek için satıcı rolüyle giriş yapmanız gerekir.
+            Urun eklemek icin satici roluyle giris yapmaniz gerekir.
           </p>
         </div>
       </div>
@@ -133,10 +132,10 @@ export default function AddProductPage() {
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 lg:grid-cols-[1fr_340px]">
       <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-8">
-          <p className="text-sm font-semibold text-emerald-800">Satıcı paneli</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Kataloğa ürün ekle</h1>
+          <p className="text-sm font-semibold text-emerald-800">Satici paneli</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Kataloga urun ekle</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            GLB veya GLTF modelinizi yükleyin. Onay sonrası ürününüz katalogda 3D önizlemeyle yayınlanır.
+            Urun gorsellerinizi yukleyin. Urunler tek fiyatla katalogda yayinlanir, pazarlik fiyati girilmez.
           </p>
         </div>
 
@@ -155,30 +154,30 @@ export default function AddProductPage() {
 
         <div className="space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-semibold text-slate-700">Ürün adı</label>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Urun adi</label>
             <input
               type="text"
               value={name}
               className="w-full rounded-xl border border-stone-300 bg-white p-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              placeholder="Örn. Ayarlanabilir telefon standı"
+              placeholder="Orn. Ayarlanabilir telefon standi"
               onChange={(event) => setName(event.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-slate-700">Açıklama</label>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Aciklama</label>
             <textarea
               rows={4}
               value={description}
               className="w-full rounded-xl border border-stone-300 bg-white p-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              placeholder="Boyut, kullanım alanı, önerilen malzeme ve üretim notlarını yazın."
+              placeholder="Boyut, kullanim alani, onerilen malzeme ve uretim notlarini yazin."
               onChange={(event) => setDescription(event.target.value)}
               disabled={isSubmitting}
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">Kategori</label>
               <select
@@ -195,28 +194,15 @@ export default function AddProductPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Minimum fiyat</label>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Fiyat</label>
               <input
                 type="number"
                 min={1}
                 step={1}
-                value={priceMin}
+                value={price}
                 placeholder="350"
                 className="w-full rounded-xl border border-stone-300 bg-white p-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                onChange={(event) => setPriceMin(event.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Maksimum fiyat</label>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={priceMax}
-                placeholder="650"
-                className="w-full rounded-xl border border-stone-300 bg-white p-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                onChange={(event) => setPriceMax(event.target.value)}
+                onChange={(event) => setPrice(event.target.value)}
                 disabled={isSubmitting}
               />
             </div>
@@ -224,25 +210,27 @@ export default function AddProductPage() {
         </div>
 
         <div className="mt-10 border-t border-stone-100 pt-8">
-          <h2 className="mb-1 text-lg font-semibold text-slate-950">3D model dosyası</h2>
-          <p className="mb-4 text-sm text-slate-600">Yalnızca .glb ve .gltf dosyaları kabul edilir.</p>
+          <h2 className="mb-1 text-lg font-semibold text-slate-950">Urun gorselleri</h2>
+          <p className="mb-4 text-sm text-slate-600">
+            En fazla 5 gorsel yukleyebilirsiniz. AI model uretimi ayri sayfada aynen devam eder.
+          </p>
           {isSubmitting ? (
             <div className="flex h-44 items-center justify-center rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50">
-              <span className="font-medium text-emerald-900">Ürün kaydediliyor...</span>
+              <span className="font-medium text-emerald-900">Urun kaydediliyor...</span>
             </div>
           ) : (
             <UploadDropzone
-              endpoint="modelUploader"
+              endpoint="productImageUploader"
               onClientUploadComplete={(res) => {
-                const first = res.at(0);
-                if (!first?.url) {
-                  setError("Yükleme tamamlandı ancak dosya bağlantısı alınamadı.");
+                const urls = res.map((file) => file.url).filter(Boolean);
+                if (urls.length === 0) {
+                  setError("Yukleme tamamlandi ancak gorsel baglantisi alinamadi.");
                   return;
                 }
-                void saveToDatabase(first.url);
+                void saveToDatabase(urls);
               }}
               onUploadError={(uploadError: Error) => {
-                setError(`Dosya yüklenemedi: ${uploadError.message}`);
+                setError(`Gorsel yuklenemedi: ${uploadError.message}`);
               }}
               appearance={{
                 container: () => "rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-4",
@@ -256,11 +244,11 @@ export default function AddProductPage() {
 
       <aside className="h-fit rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
         <UploadCloud className="h-8 w-8 text-emerald-700" />
-        <h2 className="mt-4 text-lg font-semibold text-slate-950">Yayın önizlemesi</h2>
+        <h2 className="mt-4 text-lg font-semibold text-slate-950">Yayin onizlemesi</h2>
         <div className="mt-5 space-y-4 rounded-xl bg-stone-50 p-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Ürün</p>
-            <p className="mt-1 font-semibold text-slate-950">{name.trim() || "Ürün adı"}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Urun</p>
+            <p className="mt-1 font-semibold text-slate-950">{name.trim() || "Urun adi"}</p>
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Fiyat</p>
@@ -272,7 +260,7 @@ export default function AddProductPage() {
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-slate-600">
-          Açıklaması net, fiyat aralığı gerçekçi ve önizlemesi çalışan modeller daha hızlı teklif alır.
+          Aciklamasi net, fiyati tek ve gorselleri kaliteli urunler daha hizli ilgi gorur.
         </p>
       </aside>
     </div>

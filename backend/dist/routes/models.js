@@ -16,11 +16,23 @@ const productSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(120),
     description: zod_1.z.string().trim().max(1200).optional().default(''),
     category: zod_1.z.string().trim().min(1).max(80),
-    price: zod_1.z.coerce.number().int().positive().optional(),
-    priceMin: zod_1.z.coerce.number().int().nonnegative().optional(),
-    priceMax: zod_1.z.coerce.number().int().nonnegative().optional(),
-    fileUrl: zod_1.z.string().trim().url(),
+    price: zod_1.z.coerce.number().int().positive(),
+    imageUrls: zod_1.z.array(zod_1.z.string().trim().url()).min(1).max(5),
 });
+function getCatalogImages(model) {
+    if (model.sourceImage) {
+        try {
+            const parsed = JSON.parse(model.sourceImage);
+            if (Array.isArray(parsed)) {
+                return parsed.filter((item) => typeof item === 'string' && item.length > 0);
+            }
+        }
+        catch {
+            return [model.sourceImage];
+        }
+    }
+    return model.viewerDataKey ? [model.viewerDataKey] : [];
+}
 router.get('/', async (req, res) => {
     try {
         const { category = 'all' } = req.query;
@@ -51,6 +63,7 @@ router.get('/', async (req, res) => {
             priceRangeMin: model.priceRangeMin,
             priceRangeMax: model.priceRangeMax,
             modelUrl: model.viewerDataKey,
+            imageUrls: getCatalogImages(model),
             seller: {
                 id: model.user.id,
                 name: model.user.name,
@@ -75,11 +88,8 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Ürün eklemek için satıcı hesabı gerekli.' });
         }
         const body = productSchema.parse(req.body);
-        let priceMin = body.priceMin ?? body.price ?? 0;
-        let priceMax = body.priceMax ?? body.price ?? priceMin;
-        if (priceMax < priceMin) {
-            [priceMin, priceMax] = [priceMax, priceMin];
-        }
+        const price = body.price;
+        const imageUrls = body.imageUrls;
         const product = await prisma.model.create({
             data: {
                 userId: req.user.id,
@@ -88,9 +98,10 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
                 name: body.name,
                 description: body.description || null,
                 category: body.category,
-                priceRangeMin: priceMin,
-                priceRangeMax: priceMax,
-                viewerDataKey: body.fileUrl,
+                priceRangeMin: price,
+                priceRangeMax: price,
+                viewerDataKey: imageUrls[0],
+                sourceImage: JSON.stringify(imageUrls),
                 originalStorageKey: null,
             },
         });
@@ -101,6 +112,29 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Ürün bilgileri eksik veya geçersiz.' });
         }
         res.status(500).json({ error: 'Ürün kaydedilemedi' });
+    }
+});
+router.delete('/:modelId', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const { modelId } = req.params;
+        const model = await prisma.model.findUnique({
+            where: { id: modelId },
+            select: { id: true, userId: true, type: true },
+        });
+        if (!model || model.type !== 'CATALOG') {
+            return res.status(404).json({ error: 'Urun bulunamadi' });
+        }
+        if (model.userId !== req.user.id) {
+            return res.status(403).json({ error: 'Bu urunu silme yetkiniz yok' });
+        }
+        await prisma.model.update({
+            where: { id: modelId },
+            data: { status: 'INACTIVE' },
+        });
+        res.json({ success: true });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Urun silinemedi' });
     }
 });
 router.get('/secure-view/:modelId', auth_1.authenticateToken, async (req, res) => {

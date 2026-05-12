@@ -4,6 +4,16 @@ import { createUploadthing, type FileRouter } from "uploadthing/next";
 const f = createUploadthing();
 
 export const uploadRouter = {
+  productImageUploader: f(
+    { image: { maxFileSize: "8MB", maxFileCount: 5 } },
+    { awaitServerData: false },
+  )
+    .middleware(async () => {
+      return {};
+    })
+    .onUploadComplete(({ file }) => {
+      console.log("[uploadthing] Urun gorseli yuklendi:", file.name);
+    }),
   modelUploader: f(
     { blob: { maxFileSize: "128MB", maxFileCount: 1 } },
     { awaitServerData: false },

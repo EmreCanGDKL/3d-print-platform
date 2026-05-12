@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Box, Cpu, MessageSquare, Sparkles } from 'lucide-react';
 
-const categories = ['Prototip', 'Endüstriyel parça', 'Dekor', 'Figür', 'Mimari maket'];
+const categories = ['Prototip', 'Endustriyel parca', 'Dekor', 'Figur', 'Mimari maket'];
 
 export default function Home() {
   return (
@@ -11,34 +11,34 @@ export default function Home() {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/70 px-3 py-1 text-sm font-medium text-emerald-900 shadow-sm">
               <Sparkles className="h-4 w-4" />
-              AI destekli 3D baskı pazaryeri
+              AI destekli 3D baski pazaryeri
             </div>
             <h1 className="max-w-4xl text-4xl font-bold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              Model fikrinden güvenilir üretim teklifine kadar tek platform.
+              Model fikrinden sabit fiyatli urun kataloguna kadar tek platform.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700">
-              Hazır 3D modelleri keşfedin, yapay zeka ile yeni modeller oluşturun ve doğrulanmış satıcılardan hızlı fiyat teklifi alın.
+              Hazir urunleri kesfedin, yapay zeka ile yeni modeller olusturun ve dogrulanmis saticilarla net fiyat uzerinden iletisime gecin.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/marketplace"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-slate-800"
               >
-                Kataloğu incele
+                Katalogu incele
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/ai-generator"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-6 py-3 font-semibold text-slate-900 shadow-sm transition hover:border-slate-400"
               >
-                AI ile model oluştur
+                AI ile model olustur
               </Link>
             </div>
             <div className="mt-10 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3">
               {[
-                ['48 saat', 'ortalama teklif süreci'],
-                ['GLB/GLTF', '3D önizleme desteği'],
-                ['TRY', 'yerel fiyatlandırma'],
+                ['Sabit', 'tek fiyat modeli'],
+                ['5 gorsel', 'urun gorseli destegi'],
+                ['TRY', 'yerel fiyatlandirma'],
               ].map(([value, label]) => (
                 <div key={value} className="border-l border-stone-300 pl-4">
                   <p className="text-2xl font-bold text-slate-950">{value}</p>
@@ -53,8 +53,8 @@ export default function Home() {
               <div className="aspect-[4/3] rounded-3xl border border-stone-200 bg-[linear-gradient(145deg,#172033,#31402f)] p-5 text-white">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-emerald-100">Model önizleme</p>
-                    <h2 className="mt-1 text-2xl font-semibold">Ergonomik masa standı</h2>
+                    <p className="text-sm text-emerald-100">Urun onizleme</p>
+                    <h2 className="mt-1 text-2xl font-semibold">Ergonomik masa standi</h2>
                   </div>
                   <Box className="h-9 w-9 text-emerald-200" />
                 </div>
@@ -68,14 +68,14 @@ export default function Home() {
                       <p className="mt-1 font-semibold">PLA+</p>
                     </div>
                     <div className="rounded-2xl bg-white/10 p-3">
-                      <p className="text-xs text-slate-200">Teklif</p>
-                      <p className="mt-1 font-semibold">₺420-₺680</p>
+                      <p className="text-xs text-slate-200">Fiyat</p>
+                      <p className="mt-1 font-semibold">TL 540</p>
                     </div>
                   </div>
                 </div>
                 <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white/10 p-3">
                   <BadgeCheck className="h-5 w-5 text-emerald-200" />
-                  <p className="text-sm text-slate-100">Satıcıya model, ölçü ve üretim notlarıyla birlikte iletildi.</p>
+                  <p className="text-sm text-slate-100">Sabit fiyat, satici ve teslim notlari tek kartta gorunur.</p>
                 </div>
               </div>
             </div>
@@ -88,18 +88,18 @@ export default function Home() {
           {[
             {
               icon: Cpu,
-              title: 'AI ile başlangıç',
-              text: 'Fikrinizi metin veya görsel referansla modele dönüştürün, sonucu teklif akışına taşıyın.',
+              title: 'AI ile baslangic',
+              text: 'Fikrinizi metin veya gorsel referansla modele donusturun; AI uretim akisi aynen devam eder.',
             },
             {
               icon: Box,
-              title: 'Katalogdan keşif',
-              text: 'Satıcıların yüklediği hazır modelleri kategori, fiyat ve önizleme üzerinden karşılaştırın.',
+              title: 'Katalogdan kesif',
+              text: 'Saticilarin yukledigi urunleri kategori, tek fiyat ve gorseller uzerinden karsilastirin.',
             },
             {
               icon: MessageSquare,
-              title: 'Teklif ve iletişim',
-              text: 'Her model için satıcıyla konuşun, fiyat tekliflerini mesaj içinde düzenli takip edin.',
+              title: 'Net fiyat ve iletisim',
+              text: 'Katalog urunlerinde pazarlik yerine sabit fiyati gorun, teslim detaylarini mesajla netlestirin.',
             },
           ].map((item) => (
             <div key={item.title} className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
@@ -112,8 +112,8 @@ export default function Home() {
 
         <div className="mt-14 flex flex-col justify-between gap-6 border-t border-stone-200 pt-10 lg:flex-row lg:items-end">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Popüler üretim kategorileri</h2>
-            <p className="mt-2 max-w-2xl text-slate-600">Prototipten dekoratif objelere kadar üretime hazır modelleri daha hızlı bulun.</p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">Populer uretim kategorileri</h2>
+            <p className="mt-2 max-w-2xl text-slate-600">Prototipten dekoratif objelere kadar urunleri daha hizli bulun.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (

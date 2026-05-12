@@ -10,6 +10,7 @@ type BackendCatalogModel = {
   description?: string | null;
   category?: string | null;
   modelUrl?: string | null;
+  imageUrls?: string[] | null;
   viewerDataKey?: string | null;
   priceRangeMin?: number | null;
   priceRangeMax?: number | null;
@@ -55,6 +56,8 @@ export default async function MarketplacePage() {
       category,
       categoryLabel: categoryLabels[category] ?? category,
       modelUrl: model.modelUrl ?? model.viewerDataKey ?? '',
+      imageUrls: model.imageUrls ?? [],
+      price: priceMin,
       priceRangeMin: priceMin,
       priceRangeMax: priceMax,
       seller: { id: model.seller?.id ?? model.user?.id ?? '', name: model.seller?.name ?? model.user?.name ?? 'Satici' },

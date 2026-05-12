@@ -13,11 +13,24 @@ const productSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1200).optional().default(''),
   category: z.string().trim().min(1).max(80),
-  price: z.coerce.number().int().positive().optional(),
-  priceMin: z.coerce.number().int().nonnegative().optional(),
-  priceMax: z.coerce.number().int().nonnegative().optional(),
-  fileUrl: z.string().trim().url(),
+  price: z.coerce.number().int().positive(),
+  imageUrls: z.array(z.string().trim().url()).min(1).max(5),
 });
+
+function getCatalogImages(model: { sourceImage: string | null; viewerDataKey: string }) {
+  if (model.sourceImage) {
+    try {
+      const parsed = JSON.parse(model.sourceImage);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+      }
+    } catch {
+      return [model.sourceImage];
+    }
+  }
+
+  return model.viewerDataKey ? [model.viewerDataKey] : [];
+}
 
 router.get('/', async (req, res) => {
   try {
@@ -53,6 +66,7 @@ router.get('/', async (req, res) => {
       priceRangeMin: model.priceRangeMin,
       priceRangeMax: model.priceRangeMax,
       modelUrl: model.viewerDataKey,
+      imageUrls: getCatalogImages(model),
       seller: {
         id: model.user.id,
         name: model.user.name,
@@ -79,12 +93,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     const body = productSchema.parse(req.body);
-    let priceMin = body.priceMin ?? body.price ?? 0;
-    let priceMax = body.priceMax ?? body.price ?? priceMin;
-
-    if (priceMax < priceMin) {
-      [priceMin, priceMax] = [priceMax, priceMin];
-    }
+    const price = body.price;
+    const imageUrls = body.imageUrls;
 
     const product = await prisma.model.create({
       data: {
@@ -94,9 +104,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
         name: body.name,
         description: body.description || null,
         category: body.category,
-        priceRangeMin: priceMin,
-        priceRangeMax: priceMax,
-        viewerDataKey: body.fileUrl,
+        priceRangeMin: price,
+        priceRangeMax: price,
+        viewerDataKey: imageUrls[0],
+        sourceImage: JSON.stringify(imageUrls),
         originalStorageKey: null,
       },
     });
@@ -107,6 +118,33 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Ürün bilgileri eksik veya geçersiz.' });
     }
     res.status(500).json({ error: 'Ürün kaydedilemedi' });
+  }
+});
+
+router.delete('/:modelId', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { modelId } = req.params;
+
+    const model = await prisma.model.findUnique({
+      where: { id: modelId },
+      select: { id: true, userId: true, type: true },
+    });
+
+    if (!model || model.type !== 'CATALOG') {
+      return res.status(404).json({ error: 'Urun bulunamadi' });
+    }
+
+    if (model.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Bu urunu silme yetkiniz yok' });
+    }
+
+    await prisma.model.update({
+      where: { id: modelId },
+      data: { status: 'INACTIVE' },
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Urun silinemedi' });
   }
 });
 
