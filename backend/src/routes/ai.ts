@@ -53,7 +53,7 @@ router.post('/generate', authenticateToken, upload.single('image'), async (req: 
       if (!req.file) {
         return res.status(400).json({ error: 'Görsel gerekli' });
       }
-      result = await aiService.generateFromImage(req.file.buffer, req.file.mimetype);
+      result = await aiService.generateFromImage(req.file.buffer, req.file.mimetype, req.file.originalname);
     }
 
     const model = await prisma.model.create({
@@ -91,12 +91,21 @@ router.get('/status/:taskId', authenticateToken, async (req: AuthRequest, res) =
     const model = await prisma.model.findFirst({
       where: {
         userId,
-        viewerDataKey: taskId,
+        OR: [{ viewerDataKey: taskId }, { taskId }],
       },
     });
 
     if (!model) {
       return res.status(404).json({ error: 'Model bulunamadı' });
+    }
+
+    if (model.status === 'COMPLETED') {
+      return res.json({
+        modelId: model.id,
+        status: 'completed',
+        progress: 100,
+        message: 'Tamamlandı',
+      });
     }
 
     const status = await aiService.checkTaskStatus(taskId);

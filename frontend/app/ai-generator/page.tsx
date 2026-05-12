@@ -1,19 +1,97 @@
 'use client';
 
-import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, FileImage, MessageSquare, Sparkles, Type } from 'lucide-react';
 
+const ModelViewer = dynamic(() => import('@/components/ModelViewer'), {
+  ssr: false,
+});
+
+const POLL_INTERVAL_MS = 15000;
+const MAX_POLL_ATTEMPTS = 240;
+const ACTIVE_AI_TASK_KEY = 'printforge_active_ai_task';
+
+type ActiveAiTask = {
+  taskId: string;
+  modelId: string;
+};
+
 export default function AIGenerator() {
   const router = useRouter();
-  const [mode, setMode] = useState<'text' | 'image'>('text');
+  const [mode, setMode] = useState<'text' | 'image'>('image');
   const [prompt, setPrompt] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatedModelId, setGeneratedModelId] = useState<string | null>(null);
+  const [modelPreviewUrl, setModelPreviewUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    void resumeActiveTask();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const modelId = new URLSearchParams(window.location.search).get('modelId');
+    if (modelId) {
+      setGeneratedModelId(modelId);
+      setProgress(100);
+      setStatusMessage('Model başarıyla oluşturuldu.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!generatedModelId) {
+      setModelPreviewUrl(null);
+      return;
+    }
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    const loadPreview = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch(`/api/models/file/${generatedModelId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) return;
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+
+        if (!cancelled) {
+          setModelPreviewUrl(objectUrl);
+        }
+      } catch {
+        if (!cancelled) {
+          setModelPreviewUrl(null);
+        }
+      }
+    };
+
+    void loadPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [generatedModelId]);
+
+  const saveActiveTask = (task: ActiveAiTask) => {
+    localStorage.setItem(ACTIVE_AI_TASK_KEY, JSON.stringify(task));
+  };
+
+  const clearActiveTask = () => {
+    localStorage.removeItem(ACTIVE_AI_TASK_KEY);
+  };
 
   const handleGenerate = async () => {
     setError('');
@@ -58,6 +136,9 @@ export default function AIGenerator() {
       if (!response.ok) throw new Error(data.error || 'Model üretimi başlatılamadı.');
 
       if (data.taskId) {
+        if (data.modelId) {
+          saveActiveTask({ taskId: data.taskId, modelId: data.modelId });
+        }
         await pollForResult(data.taskId, token);
       }
     } catch (err: any) {
@@ -68,25 +149,27 @@ export default function AIGenerator() {
   };
 
   const pollForResult = async (taskId: string, token: string) => {
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < MAX_POLL_ATTEMPTS; i += 1) {
       const response = await fetch(`/api/ai/status/${taskId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
         continue;
       }
 
       const status = await response.json();
-      const nextProgress = Math.min(100, Math.round(status.progress || i * 2));
+      const fallbackProgress = Math.min(95, Math.round((i / MAX_POLL_ATTEMPTS) * 95));
+      const nextProgress = Math.min(100, Math.round(status.progress || fallbackProgress));
       setProgress(nextProgress);
-      setStatusMessage(status.message || 'Üretim devam ediyor...');
+      setStatusMessage(status.message || 'Üretim devam ediyor, bu işlem biraz uzun sürebilir...');
 
       if (status.status === 'completed') {
         setGeneratedModelId(status.modelId);
         setProgress(100);
         setStatusMessage('Model başarıyla oluşturuldu.');
+        clearActiveTask();
         return;
       }
 
@@ -94,10 +177,33 @@ export default function AIGenerator() {
         throw new Error(status.message || 'Model üretimi başarısız oldu.');
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 
-    throw new Error('Üretim beklenenden uzun sürdü. Geçmişten tekrar kontrol edin.');
+    throw new Error('Üretim hâlâ devam ediyor olabilir. Bir süre sonra aynı işlemi tekrar kontrol edelim.');
+  };
+
+  const resumeActiveTask = async () => {
+    setError('');
+
+    const token = localStorage.getItem('token');
+    const rawTask = localStorage.getItem(ACTIVE_AI_TASK_KEY);
+
+    if (!token || !rawTask || generating) return;
+
+    try {
+      const task = JSON.parse(rawTask) as ActiveAiTask;
+      if (!task.taskId) return;
+
+      setGenerating(true);
+      setProgress(0);
+      setStatusMessage('Devam eden üretim kontrol ediliyor...');
+      await pollForResult(task.taskId, token);
+    } catch (err: any) {
+      setError(err.message || 'Devam eden üretim kontrol edilemedi.');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const startChat = () => {
@@ -202,6 +308,15 @@ export default function AIGenerator() {
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
               <h3 className="text-lg font-semibold text-emerald-950">Model hazır</h3>
               <p className="mt-2 text-sm text-emerald-800">Model ID: {generatedModelId}</p>
+              <div className="mt-5 h-72 overflow-hidden rounded-xl border border-emerald-200 bg-white">
+                {modelPreviewUrl ? (
+                  <ModelViewer src={modelPreviewUrl} className="h-full w-full" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm font-medium text-emerald-800">
+                    3D önizleme hazırlanıyor...
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={startChat}

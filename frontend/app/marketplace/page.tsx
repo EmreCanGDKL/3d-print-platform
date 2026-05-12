@@ -1,7 +1,29 @@
-import prisma from '@/lib/prisma';
 import MarketplaceCatalog, { type CatalogModel } from './MarketplaceCatalog';
 
 export const dynamic = 'force-dynamic';
+
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+
+type BackendCatalogModel = {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  category?: string | null;
+  modelUrl?: string | null;
+  viewerDataKey?: string | null;
+  priceRangeMin?: number | null;
+  priceRangeMax?: number | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  seller?: {
+    id?: string;
+    name?: string;
+  };
+  user?: {
+    id?: string;
+    name?: string;
+  };
+};
 
 const categoryLabels: Record<string, string> = {
   art: 'Sanat ve dekor',
@@ -12,15 +34,18 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default async function MarketplacePage() {
-  const rows = await prisma.model.findMany({
-    where: { type: 'CATALOG', status: 'ACTIVE' },
-    include: { user: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'desc' },
-  });
+  let rows: BackendCatalogModel[] = [];
+
+  try {
+    const response = await fetch(`${backendUrl}/api/models`, { cache: 'no-store' });
+    rows = response.ok ? ((await response.json()) as BackendCatalogModel[]) : [];
+  } catch {
+    rows = [];
+  }
 
   const models: CatalogModel[] = rows.map((model) => {
-    const priceMin = model.priceRangeMin ?? 0;
-    const priceMax = model.priceRangeMax ?? priceMin;
+    const priceMin = model.priceRangeMin ?? model.priceMin ?? 0;
+    const priceMax = model.priceRangeMax ?? model.priceMax ?? priceMin;
     const category = (model.category ?? '').trim();
 
     return {
@@ -29,10 +54,10 @@ export default async function MarketplacePage() {
       description: (model.description ?? '').trim() || 'Satici bu model icin henuz aciklama eklememis.',
       category,
       categoryLabel: categoryLabels[category] ?? category,
-      modelUrl: model.viewerDataKey,
+      modelUrl: model.modelUrl ?? model.viewerDataKey ?? '',
       priceRangeMin: priceMin,
       priceRangeMax: priceMax,
-      seller: { id: model.user.id, name: model.user.name },
+      seller: { id: model.seller?.id ?? model.user?.id ?? '', name: model.seller?.name ?? model.user?.name ?? 'Satici' },
     };
   });
 

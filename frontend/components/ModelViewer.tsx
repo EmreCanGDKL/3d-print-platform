@@ -1,76 +1,86 @@
 'use client';
 
-import Script from 'next/script';
-import { useCallback, useEffect, useState } from 'react';
+import { Component, Suspense, useEffect } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { Bounds, Center, Environment, OrbitControls, useGLTF } from '@react-three/drei';
 import { Box } from 'lucide-react';
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'model-viewer': React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          src?: string;
-          alt?: string;
-          'camera-controls'?: boolean | string;
-          'auto-rotate'?: boolean | string;
-          'shadow-intensity'?: string;
-          'interaction-prompt'?: string;
-          exposure?: string;
-        },
-        HTMLElement
-      >;
-    }
-  }
-}
-
-const MODEL_VIEWER_SCRIPT =
-  'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js';
 
 interface ModelViewerProps {
   src: string;
   className?: string;
 }
 
-export default function ModelViewer({ src, className }: ModelViewerProps) {
-  const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
 
-  const markReady = useCallback(async () => {
-    try {
-      await customElements.whenDefined('model-viewer');
-      setReady(true);
-    } catch {
-      setFailed(true);
+interface ErrorBoundaryState {
+  failed: boolean;
+}
+
+class ModelErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidUpdate(previousProps: ErrorBoundaryProps) {
+    if (previousProps.children !== this.props.children && this.state.failed) {
+      this.setState({ failed: false });
     }
-  }, []);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <ViewerPlaceholder label="3D önizleme yüklenemedi" />;
+    }
+
+    return this.props.children;
+  }
+}
+
+function ViewerPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-stone-100 to-emerald-50 text-center text-sm text-slate-500">
+      <Box className="mb-2 h-8 w-8 text-slate-400" />
+      {label}
+    </div>
+  );
+}
+
+function GLTFModel({ src }: { src: string }) {
+  const gltf = useGLTF(src);
 
   useEffect(() => {
-    if (customElements.get('model-viewer')) {
-      void markReady();
-    }
-  }, [markReady]);
+    return () => {
+      useGLTF.clear(src);
+    };
+  }, [src]);
 
   return (
+    <Bounds fit clip observe margin={1.25}>
+      <Center>
+        <primitive object={gltf.scene} />
+      </Center>
+    </Bounds>
+  );
+}
+
+export default function ModelViewer({ src, className }: ModelViewerProps) {
+  return (
     <div className={className ?? 'relative h-full w-full'}>
-      <Script src={MODEL_VIEWER_SCRIPT} strategy="lazyOnload" onLoad={markReady} />
-      {!ready || failed ? (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-stone-100 to-emerald-50 text-center text-sm text-slate-500">
-          <Box className="mb-2 h-8 w-8 text-slate-400" />
-          {failed ? '3D önizleme yüklenemedi' : '3D önizleme yükleniyor...'}
-        </div>
-      ) : (
-        <model-viewer
-          src={src}
-          alt="3D model önizlemesi"
-          camera-controls
-          auto-rotate
-          shadow-intensity="1"
-          exposure="0.95"
-          interaction-prompt="none"
-          onError={() => setFailed(true)}
-          className="block h-full w-full bg-transparent"
-        />
-      )}
+      <ModelErrorBoundary key={src}>
+        <Suspense fallback={<ViewerPlaceholder label="3D önizleme yükleniyor..." />}>
+          <Canvas camera={{ position: [2.4, 1.8, 2.4], fov: 42 }} dpr={[1, 2]} shadows>
+            <ambientLight intensity={0.8} />
+            <directionalLight position={[3, 4, 5]} intensity={1.8} castShadow />
+            <GLTFModel src={src} />
+            <Environment preset="city" />
+            <OrbitControls makeDefault enablePan={false} minDistance={0.8} maxDistance={8} />
+          </Canvas>
+        </Suspense>
+      </ModelErrorBoundary>
     </div>
   );
 }

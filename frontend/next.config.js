@@ -21,7 +21,9 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    const base = process.env.BACKEND_URL || 'http://localhost:3001';
+    const base = process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
+    if (!base) return [];
+
     return [
       { source: '/api/auth/:path*', destination: `${base}/api/auth/:path*` },
       { source: '/api/ai/:path*', destination: `${base}/api/ai/:path*` },

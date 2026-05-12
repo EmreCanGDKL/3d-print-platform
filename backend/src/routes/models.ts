@@ -7,6 +7,7 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
+const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 const productSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -18,7 +19,7 @@ const productSchema = z.object({
   fileUrl: z.string().trim().url(),
 });
 
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+router.get('/', async (req, res) => {
   try {
     const { category = 'all' } = req.query;
 
@@ -152,6 +153,61 @@ router.get('/secure-view/:modelId', authenticateToken, async (req: AuthRequest, 
     res.json(secureData);
   } catch (error: any) {
     res.status(500).json({ error: 'Model yüklenemedi' });
+  }
+});
+
+router.get('/file/:modelId', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { modelId } = req.params;
+    const userId = req.user!.id;
+
+    const model = await prisma.model.findUnique({
+      where: { id: modelId },
+    });
+
+    if (!model) {
+      return res.status(404).json({ error: 'Model bulunamadı' });
+    }
+
+    let hasAccess = model.userId === userId;
+    if (!hasAccess) {
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          modelId,
+          OR: [{ buyerId: userId }, { sellerId: userId }],
+        },
+      });
+      hasAccess = !!conversation;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Erişim reddedildi' });
+    }
+
+    const storageKey = model.originalStorageKey || model.viewerDataKey;
+
+    if (/^https?:\/\//i.test(storageKey)) {
+      return res.redirect(storageKey);
+    }
+
+    const filePath = path.resolve(uploadsDir, storageKey);
+
+    if (!filePath.startsWith(uploadsDir + path.sep) || !fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Model dosyası bulunamadı' });
+    }
+
+    const extension = path.extname(filePath).toLowerCase();
+    if (extension === '.glb') {
+      res.type('model/gltf-binary');
+    } else if (extension === '.gltf') {
+      res.type('model/gltf+json');
+    } else {
+      res.type('application/octet-stream');
+    }
+
+    res.sendFile(filePath);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Model dosyası yüklenemedi' });
   }
 });
 

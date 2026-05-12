@@ -5,6 +5,20 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertCircle, Box } from 'lucide-react';
 
+async function readApiResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  const shortText = text.replace(/\s+/g, ' ').slice(0, 120);
+  throw new Error(
+    `API JSON yerine farkli bir cevap dondu. Backend baglantisini kontrol edin. Detay: ${shortText}`,
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -24,10 +38,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await readApiResponse(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Giriş başarısız.');
+        throw new Error(data.error || 'Giris basarisiz.');
       }
 
       localStorage.setItem('token', data.token);
@@ -35,7 +49,7 @@ export default function LoginPage() {
       window.dispatchEvent(new Event('auth-changed'));
       router.push('/marketplace');
     } catch (err: any) {
-      setError(err.message || 'Giriş işlemi tamamlanamadı.');
+      setError(err.message || 'Giris islemi tamamlanamadi.');
     } finally {
       setLoading(false);
     }
@@ -48,8 +62,8 @@ export default function LoginPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
             <Box className="h-6 w-6" />
           </div>
-          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950">Giriş yap</h1>
-          <p className="mt-2 text-sm text-slate-600">Katalog, teklif ve AI model akışlarına devam edin.</p>
+          <h1 className="mt-5 text-3xl font-bold tracking-tight text-slate-950">Giris yap</h1>
+          <p className="mt-2 text-sm text-slate-600">Katalog, teklif ve AI model akislarina devam edin.</p>
         </div>
 
         {error && (
@@ -73,14 +87,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-semibold text-slate-700">Şifre</label>
+            <label className="mb-1 block text-sm font-semibold text-slate-700">Sifre</label>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
               className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              placeholder="••••••••"
+              placeholder="********"
             />
           </div>
 
@@ -89,14 +103,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-xl bg-slate-950 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
           >
-            {loading ? 'Giriş yapılıyor...' : 'Giriş yap'}
+            {loading ? 'Giris yapiliyor...' : 'Giris yap'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-600">
-          Hesabınız yok mu?{' '}
+          Hesabiniz yok mu?{' '}
           <Link href="/register" className="font-semibold text-emerald-800 hover:text-emerald-900">
-            Kayıt olun
+            Kayit olun
           </Link>
         </p>
       </div>
