@@ -18,6 +18,7 @@ const messageSchema = zod_1.z.object({
 });
 const orderSchema = zod_1.z.object({
     modelId: zod_1.z.string().min(1),
+    quantity: zod_1.z.coerce.number().int().min(1).max(99).optional().default(1),
 });
 const orderStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['ORDERED', 'PREPARING', 'SHIPPED', 'COMPLETED', 'CANCELLED']),
@@ -119,7 +120,7 @@ router.post('/new', auth_1.authenticateToken, async (req, res) => {
 });
 router.post('/order', auth_1.authenticateToken, async (req, res) => {
     try {
-        const { modelId } = orderSchema.parse(req.body);
+        const { modelId, quantity } = orderSchema.parse(req.body);
         const buyerId = req.user.id;
         const model = await prisma.model.findFirst({
             where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
@@ -132,6 +133,7 @@ router.post('/order', auth_1.authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Kendi urununuz icin siparis olusturamazsiniz.' });
         }
         const price = model.priceRangeMin ?? model.priceRangeMax ?? 0;
+        const totalPrice = price * quantity;
         const existingConvo = await prisma.conversation.findFirst({
             where: {
                 buyerId,
@@ -160,7 +162,7 @@ router.post('/order', auth_1.authenticateToken, async (req, res) => {
             data: {
                 conversationId: conversation.id,
                 senderId: buyerId,
-                content: `Siparis olusturuldu: ${model.name || modelId} - TL ${price.toLocaleString('tr-TR')}`,
+                content: `Siparis olusturuldu: ${model.name || modelId} - ${quantity} adet - TL ${totalPrice.toLocaleString('tr-TR')}`,
                 isQuote: false,
             },
         });

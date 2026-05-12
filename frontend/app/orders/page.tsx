@@ -45,6 +45,16 @@ function getToken() {
   return localStorage.getItem("token");
 }
 
+async function readApiJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+
+  try {
+    return text ? (JSON.parse(text) as T) : ({} as T);
+  } catch {
+    throw new Error(fallbackMessage);
+  }
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -79,7 +89,10 @@ export default function OrdersPage() {
       const response = await fetch("/api/chat/inbox/list", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = (await response.json()) as { items?: OrderItem[]; error?: string };
+      const data = await readApiJson<{ items?: OrderItem[]; error?: string }>(
+        response,
+        "Siparis API'sinden beklenen cevap gelmedi. Backend calisiyor mu ve son deploy tamamlandi mi kontrol edin.",
+      );
 
       if (!response.ok) {
         throw new Error(data.error || "Siparisler alinamadi.");
@@ -117,7 +130,10 @@ export default function OrdersPage() {
         },
         body: JSON.stringify({ status }),
       });
-      const data = await response.json();
+      const data = await readApiJson<{ error?: string }>(
+        response,
+        "Siparis API'sinden beklenen cevap gelmedi. Backend calisiyor mu ve son deploy tamamlandi mi kontrol edin.",
+      );
 
       if (!response.ok) {
         throw new Error(data.error || "Durum guncellenemedi.");

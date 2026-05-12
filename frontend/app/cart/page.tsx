@@ -3,8 +3,18 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, ShoppingCart, Trash2 } from "lucide-react";
-import { CartItem, clearCart, readCart, removeFromCart } from "@/lib/cart";
+import { AlertCircle, CheckCircle2, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { CartItem, clearCart, readCart, removeFromCart, setCartItemQuantity } from "@/lib/cart";
+
+async function readApiJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const text = await response.text();
+
+  try {
+    return text ? (JSON.parse(text) as T) : ({} as T);
+  } catch {
+    throw new Error(fallbackMessage);
+  }
+}
 
 export default function CartPage() {
   const router = useRouter();
@@ -22,10 +32,15 @@ export default function CartPage() {
     setItems(readCart());
   }, [router]);
 
-  const total = useMemo(() => items.reduce((sum, item) => sum + item.price, 0), [items]);
+  const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
 
   const handleRemove = (id: string) => {
     setItems(removeFromCart(id));
+  };
+
+  const handleQuantity = (id: string, quantity: number) => {
+    setItems(setCartItemQuantity(id, quantity));
   };
 
   const handleCheckout = async () => {
@@ -49,9 +64,12 @@ export default function CartPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ modelId: item.id }),
+          body: JSON.stringify({ modelId: item.id, quantity: item.quantity }),
         });
-        const data = await response.json();
+        const data = await readApiJson<{ error?: string }>(
+          response,
+          "Siparis API'sinden beklenen cevap gelmedi. Backend calisiyor mu ve son deploy tamamlandi mi kontrol edin.",
+        );
         if (!response.ok) {
           throw new Error(data.error || `${item.name} icin siparis olusturulamadi.`);
         }
@@ -123,7 +141,31 @@ export default function CartPage() {
                   <p className="mt-3 text-sm font-semibold text-slate-700">Satici: {item.seller.name}</p>
                 </div>
                 <div className="flex flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
-                  <p className="text-xl font-bold text-slate-950">TL {item.price.toLocaleString("tr-TR")}</p>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-slate-950">TL {(item.price * item.quantity).toLocaleString("tr-TR")}</p>
+                    <p className="text-xs font-medium text-slate-500">Birim: TL {item.price.toLocaleString("tr-TR")}</p>
+                  </div>
+                  <div className="flex h-10 items-center overflow-hidden rounded-xl border border-stone-300 bg-white">
+                    <button
+                      type="button"
+                      onClick={() => handleQuantity(item.id, item.quantity - 1)}
+                      className="inline-flex h-10 w-10 items-center justify-center text-slate-700 transition hover:bg-stone-100"
+                      aria-label="Adedi azalt"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="flex h-10 min-w-10 items-center justify-center border-x border-stone-300 px-3 text-sm font-bold text-slate-950">
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleQuantity(item.id, item.quantity + 1)}
+                      className="inline-flex h-10 w-10 items-center justify-center text-slate-700 transition hover:bg-stone-100"
+                      aria-label="Adedi artir"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleRemove(item.id)}
@@ -142,6 +184,10 @@ export default function CartPage() {
             <div className="mt-4 space-y-3 text-sm text-slate-700">
               <div className="flex justify-between">
                 <span>Urun adedi</span>
+                <span className="font-semibold">{totalQuantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Sepetteki cesit</span>
                 <span className="font-semibold">{items.length}</span>
               </div>
               <div className="flex justify-between border-t border-stone-200 pt-3 text-base">

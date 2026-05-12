@@ -5,7 +5,7 @@ import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Bell, Box, LogOut, Menu, Plus, ShoppingBag, ShoppingCart, UserRound, X } from 'lucide-react';
-import { CART_CHANGED_EVENT, readCart } from '@/lib/cart';
+import { CART_CHANGED_EVENT, getCartItemCount } from '@/lib/cart';
 
 type StoredUser = {
   id: string;
@@ -48,7 +48,7 @@ export function Navbar() {
   }, [pathname, refreshUser]);
 
   useEffect(() => {
-    const refreshCart = () => setCartCount(readCart().length);
+    const refreshCart = () => setCartCount(getCartItemCount());
     refreshCart();
     window.addEventListener(CART_CHANGED_EVENT, refreshCart);
     window.addEventListener('storage', refreshCart);
@@ -170,20 +170,18 @@ export function Navbar() {
                     </span>
                   )}
                 </Link>
-                {user.role !== 'SELLER' && (
-                  <Link
-                    href="/cart"
-                    className="relative hidden items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100 sm:inline-flex"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    Sepet
-                    {cartCount > 0 && (
-                      <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-xs font-bold text-white">
-                        {cartCount > 9 ? '9+' : cartCount}
-                      </span>
-                    )}
-                  </Link>
-                )}
+                <Link
+                  href="/cart"
+                  className="relative hidden items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100 sm:inline-flex"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Sepet
+                  {cartCount > 0 && (
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1 text-xs font-bold text-white">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
+                </Link>
                 <div className="hidden items-center gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 md:flex">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-sm font-bold text-emerald-800">
                     {initials}
@@ -266,20 +264,18 @@ export function Navbar() {
                 )}
               </Link>
             )}
-            {user?.role !== 'SELLER' && (
-              <Link
-                href="/cart"
-                onClick={() => setOpen(false)}
-                className="flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
-              >
-                <span>Sepet</span>
-                {cartCount > 0 && (
-                  <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-bold text-white">
-                    {cartCount > 9 ? '9+' : cartCount}
-                  </span>
-                )}
-              </Link>
-            )}
+            <Link
+              href="/cart"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+            >
+              <span>Sepet</span>
+              {cartCount > 0 && (
+                <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-bold text-white">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
+            </Link>
             {user && (
               <div className="rounded-xl bg-stone-100 px-3 py-2">
                 <div className="flex items-center gap-2">

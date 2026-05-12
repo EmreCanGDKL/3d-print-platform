@@ -142,10 +142,11 @@ export default function MarketplaceCatalog({ models }: Props) {
       description: model.description,
       price: model.price,
       imageUrl: model.imageUrls[0] || model.modelUrl || '',
+      quantity: 1,
       seller: model.seller,
     });
 
-    window.alert(result.added ? 'Urun sepete eklendi.' : 'Bu urun zaten sepetinizde.');
+    window.alert(result.added ? 'Urun sepete eklendi.' : 'Sepetteki urun adedi artirildi.');
   };
 
   const handleDelete = async (id: string) => {

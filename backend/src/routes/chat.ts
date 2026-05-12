@@ -20,6 +20,7 @@ const messageSchema = z.object({
 
 const orderSchema = z.object({
   modelId: z.string().min(1),
+  quantity: z.coerce.number().int().min(1).max(99).optional().default(1),
 });
 
 const orderStatusSchema = z.object({
@@ -136,7 +137,7 @@ router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
 
 router.post('/order', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const { modelId } = orderSchema.parse(req.body);
+    const { modelId, quantity } = orderSchema.parse(req.body);
     const buyerId = req.user!.id;
 
     const model = await prisma.model.findFirst({
@@ -153,6 +154,7 @@ router.post('/order', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     const price = model.priceRangeMin ?? model.priceRangeMax ?? 0;
+    const totalPrice = price * quantity;
     const existingConvo = await prisma.conversation.findFirst({
       where: {
         buyerId,
@@ -183,7 +185,7 @@ router.post('/order', authenticateToken, async (req: AuthRequest, res) => {
       data: {
         conversationId: conversation.id,
         senderId: buyerId,
-        content: `Siparis olusturuldu: ${model.name || modelId} - TL ${price.toLocaleString('tr-TR')}`,
+        content: `Siparis olusturuldu: ${model.name || modelId} - ${quantity} adet - TL ${totalPrice.toLocaleString('tr-TR')}`,
         isQuote: false,
       },
     });
