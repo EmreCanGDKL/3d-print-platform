@@ -12,7 +12,11 @@ const nextConfig = {
     webpackBuildWorker: false,
   },
   async rewrites() {
-    const base = process.env.BACKEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
+    const base =
+      process.env.BACKEND_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
     if (!base) return [];
 
     return [

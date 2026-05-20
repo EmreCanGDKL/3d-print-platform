@@ -16,13 +16,29 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_URLS,
+    'http://localhost:3000',
+]
+    .filter(Boolean)
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim().replace(/\/$/, ''))
+    .filter(Boolean);
 function readPositiveInteger(value, fallback) {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin(origin, callback) {
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        callback(null, allowedOrigins.includes(normalizedOrigin));
+    },
     credentials: true,
 }));
 const aiLimiter = (0, express_rate_limit_1.default)({

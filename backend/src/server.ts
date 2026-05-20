@@ -13,6 +13,15 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URLS,
+  'http://localhost:3000',
+]
+  .filter(Boolean)
+  .flatMap((value) => value!.split(','))
+  .map((value) => value.trim().replace(/\/$/, ''))
+  .filter(Boolean);
 
 function readPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -21,7 +30,15 @@ function readPositiveInteger(value: string | undefined, fallback: number) {
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    callback(null, allowedOrigins.includes(normalizedOrigin));
+  },
   credentials: true,
 }));
 

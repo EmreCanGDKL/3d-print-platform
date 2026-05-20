@@ -1,9 +1,18 @@
+export function apiUrl(input: RequestInfo | URL) {
+  if (typeof input !== 'string') return input;
+
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  if (!baseUrl || !input.startsWith('/api/')) return input;
+
+  return `${baseUrl.replace(/\/$/, '')}${input}`;
+}
+
 export async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 30000) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(input, {
+    return await fetch(apiUrl(input), {
       ...init,
       signal: init.signal || controller.signal,
     });
@@ -21,4 +30,3 @@ export async function readJsonResponse<T>(response: Response, fallbackMessage: s
     throw new Error(fallbackMessage);
   }
 }
-

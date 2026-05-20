@@ -20,6 +20,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useAiGeneration } from '@/lib/ai-generation';
+import { apiUrl } from '@/lib/api';
 import { CART_CHANGED_EVENT, getCartItemCount } from '@/lib/cart';
 import { useLanguage } from '@/lib/language';
 
@@ -143,7 +144,7 @@ export function Navbar() {
     let cancelled = false;
     const loadNotifications = async () => {
       try {
-        const response = await fetch('/api/chat/notifications/summary', {
+        const response = await fetch(apiUrl('/api/chat/notifications/summary'), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) return;
@@ -409,21 +410,23 @@ export function Navbar() {
                       )}
                     </Link>
                   )}
-                  <Link
-                    href="/cart"
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-stone-100"
-                  >
-                    <span className="flex items-center gap-3">
-                      <ShoppingCart className="h-4 w-4 text-slate-500" />
-                      {text.cart}
-                    </span>
-                    {cartCount > 0 && (
-                      <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-bold text-white">
-                        {cartCount > 99 ? '99+' : cartCount}
+                  {user && (
+                    <Link
+                      href="/cart"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+                    >
+                      <span className="flex items-center gap-3">
+                        <ShoppingCart className="h-4 w-4 text-slate-500" />
+                        {text.cart}
                       </span>
-                    )}
-                  </Link>
+                      {cartCount > 0 && (
+                        <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-bold text-white">
+                          {cartCount > 99 ? '99+' : cartCount}
+                        </span>
+                      )}
+                    </Link>
+                  )}
                   {user && (
                     <Link
                       href="/settings"
