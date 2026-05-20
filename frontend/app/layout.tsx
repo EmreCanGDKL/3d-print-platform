@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import '@uploadthing/react/styles.css';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
+import { AiGenerationProvider } from '@/lib/ai-generation';
+import { LanguageProvider } from '@/lib/language';
 
 export const metadata: Metadata = {
   title: 'PrintForge | 3D Baskı Pazaryeri',
@@ -16,10 +18,12 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body>
-        <Navbar />
-        <main className="min-h-screen bg-stone-50">
-          {children}
-        </main>
+        <LanguageProvider>
+          <AiGenerationProvider>
+            <Navbar />
+            <main className="min-h-screen bg-stone-50">{children}</main>
+          </AiGenerationProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

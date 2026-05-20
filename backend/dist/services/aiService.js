@@ -240,7 +240,7 @@ class AIService {
             else {
                 normalized = 'running';
             }
-            console.log(`[Tripo] Görev: ${taskId} | %${progress} | Durum: ${normalized}`);
+            console.log(`[Tripo] Görev: ${taskId} | Durum: ${normalized}`);
             return {
                 taskId,
                 status: normalized,
@@ -265,7 +265,7 @@ class AIService {
         if (status === 'queued')
             return 'Tripo motorunda sıraya alındı, bekleniyor...';
         if (status === 'running')
-            return `Üretiliyor... %${progress}`;
+            return 'Üretiliyor...';
         if (status === 'success')
             return 'Model başarıyla tamamlandı.';
         return 'Hazırlanıyor...';

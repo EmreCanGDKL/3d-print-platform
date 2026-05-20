@@ -302,7 +302,7 @@ export class AIService {
         normalized = 'running';
       }
 
-      console.log(`[Tripo] Görev: ${taskId} | %${progress} | Durum: ${normalized}`);
+      console.log(`[Tripo] Görev: ${taskId} | Durum: ${normalized}`);
 
       return {
         taskId,
@@ -330,7 +330,7 @@ export class AIService {
   ): string {
     if (status === 'failed') return failureReason || '3D model üretimi başarısız oldu.';
     if (status === 'queued') return 'Tripo motorunda sıraya alındı, bekleniyor...';
-    if (status === 'running') return `Üretiliyor... %${progress}`;
+    if (status === 'running') return 'Üretiliyor...';
     if (status === 'success') return 'Model başarıyla tamamlandı.';
     return 'Hazırlanıyor...';
   }

@@ -12,6 +12,12 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
+
+function readPositiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 app.use(helmet());
 app.use(cors({
@@ -20,8 +26,8 @@ app.use(cors({
 }));
 
 const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: readPositiveInteger(process.env.AI_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+  max: readPositiveInteger(process.env.AI_RATE_LIMIT_MAX, DEFAULT_AI_RATE_LIMIT_MAX),
   message: { error: 'AI üretim limiti aşıldı. Lütfen biraz sonra tekrar deneyin.' },
 });
 

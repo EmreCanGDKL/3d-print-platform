@@ -19,6 +19,9 @@ const productSchema = zod_1.z.object({
     price: zod_1.z.coerce.number().int().positive(),
     imageUrls: zod_1.z.array(zod_1.z.string().trim().url()).min(1).max(5),
 });
+const productUpdateSchema = productSchema.partial().extend({
+    imageUrls: zod_1.z.array(zod_1.z.string().trim().url()).min(1).max(5).optional(),
+});
 const reviewSchema = zod_1.z.object({
     rating: zod_1.z.coerce.number().int().min(1).max(5),
     comment: zod_1.z.string().trim().min(3).max(1000),
@@ -42,6 +45,24 @@ function getCatalogImages(model) {
         }
     }
     return model.viewerDataKey ? [model.viewerDataKey] : [];
+}
+function getSellerDisplayName(user) {
+    return user.companyName || user.name;
+}
+function toCatalogProduct(model) {
+    return {
+        id: model.id,
+        name: model.name,
+        description: model.description,
+        category: model.category,
+        price: model.priceRangeMin ?? 0,
+        priceRangeMin: model.priceRangeMin,
+        priceRangeMax: model.priceRangeMax,
+        imageUrls: getCatalogImages(model),
+        status: model.status,
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+    };
 }
 async function getReviewSummary(modelId) {
     const aggregate = await prisma.productReview.aggregate({
@@ -71,6 +92,7 @@ router.get('/', async (req, res) => {
                     select: {
                         id: true,
                         name: true,
+                        companyName: true,
                     },
                 },
             },
@@ -91,7 +113,7 @@ router.get('/', async (req, res) => {
                 ratingCount: reviewSummary.count,
                 seller: {
                     id: model.user.id,
-                    name: model.user.name,
+                    name: getSellerDisplayName(model.user),
                     rating: 4.8,
                 },
                 stats: {
@@ -108,13 +130,32 @@ router.get('/', async (req, res) => {
         res.status(500).json({ error: 'Modeller alınamadı' });
     }
 });
+router.get('/mine', auth_1.authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'SELLER') {
+            return res.status(403).json({ error: 'Ürünleri görüntülemek için satıcı hesabı gerekli.' });
+        }
+        const products = await prisma.model.findMany({
+            where: {
+                userId: req.user.id,
+                type: 'CATALOG',
+                status: { not: 'INACTIVE' },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json({ items: products.map(toCatalogProduct) });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Ürünler alınamadı' });
+    }
+});
 router.get('/:modelId/details', async (req, res) => {
     try {
         const { modelId } = req.params;
         const model = await prisma.model.findFirst({
             where: { id: modelId, type: 'CATALOG', status: 'ACTIVE' },
             include: {
-                user: { select: { id: true, name: true } },
+                user: { select: { id: true, name: true, companyName: true } },
                 reviews: {
                     orderBy: { createdAt: 'desc' },
                     include: { user: { select: { id: true, name: true } } },
@@ -129,7 +170,7 @@ router.get('/:modelId/details', async (req, res) => {
             },
         });
         if (!model) {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         const reviewSummary = await getReviewSummary(model.id);
         res.json({
@@ -141,7 +182,7 @@ router.get('/:modelId/details', async (req, res) => {
             imageUrls: getCatalogImages(model),
             ratingAverage: reviewSummary.average,
             ratingCount: reviewSummary.count,
-            seller: model.user,
+            seller: { id: model.user.id, name: getSellerDisplayName(model.user) },
             reviews: model.reviews.map((review) => ({
                 id: review.id,
                 rating: review.rating,
@@ -161,7 +202,7 @@ router.get('/:modelId/details', async (req, res) => {
         });
     }
     catch (error) {
-        res.status(500).json({ error: 'Urun detayi alinamadi' });
+        res.status(500).json({ error: 'Ürün detayı alınamadı' });
     }
 });
 router.post('/:modelId/reviews', auth_1.authenticateToken, async (req, res) => {
@@ -173,7 +214,7 @@ router.post('/:modelId/reviews', auth_1.authenticateToken, async (req, res) => {
             select: { id: true },
         });
         if (!model) {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         const review = await prisma.productReview.upsert({
             where: { modelId_userId: { modelId, userId: req.user.id } },
@@ -190,7 +231,7 @@ router.post('/:modelId/reviews', auth_1.authenticateToken, async (req, res) => {
     }
     catch (error) {
         if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({ error: 'Yorum ve puan bilgisi gecersiz.' });
+            return res.status(400).json({ error: 'Yorum ve puan bilgisi geçersiz.' });
         }
         res.status(500).json({ error: 'Yorum kaydedilemedi' });
     }
@@ -204,7 +245,7 @@ router.post('/:modelId/questions', auth_1.authenticateToken, async (req, res) =>
             select: { id: true },
         });
         if (!model) {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         const question = await prisma.productQuestion.create({
             data: {
@@ -218,7 +259,7 @@ router.post('/:modelId/questions', auth_1.authenticateToken, async (req, res) =>
     }
     catch (error) {
         if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({ error: 'Soru metni gecersiz.' });
+            return res.status(400).json({ error: 'Soru metni geçersiz.' });
         }
         res.status(500).json({ error: 'Soru kaydedilemedi' });
     }
@@ -232,17 +273,17 @@ router.post('/:modelId/questions/:questionId/answer', auth_1.authenticateToken, 
             select: { id: true, userId: true },
         });
         if (!model) {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         if (model.userId !== req.user.id) {
-            return res.status(403).json({ error: 'Bu soruyu sadece urunun saticisi yanitlayabilir.' });
+            return res.status(403).json({ error: 'Bu soruyu sadece ürünün satıcısı yanıtlayabilir.' });
         }
         const existingQuestion = await prisma.productQuestion.findFirst({
             where: { id: questionId, modelId },
             select: { id: true },
         });
         if (!existingQuestion) {
-            return res.status(404).json({ error: 'Soru bulunamadi' });
+            return res.status(404).json({ error: 'Soru bulunamadı' });
         }
         const question = await prisma.productQuestion.update({
             where: { id: existingQuestion.id },
@@ -260,7 +301,7 @@ router.post('/:modelId/questions/:questionId/answer', auth_1.authenticateToken, 
     }
     catch (error) {
         if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({ error: 'Cevap metni gecersiz.' });
+            return res.status(400).json({ error: 'Cevap metni geçersiz.' });
         }
         res.status(500).json({ error: 'Cevap kaydedilemedi' });
     }
@@ -297,6 +338,42 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Ürün kaydedilemedi' });
     }
 });
+router.patch('/:modelId', auth_1.authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'SELLER') {
+            return res.status(403).json({ error: 'Ürün düzenlemek için satıcı hesabı gerekli.' });
+        }
+        const { modelId } = req.params;
+        const body = productUpdateSchema.parse(req.body);
+        const model = await prisma.model.findFirst({
+            where: { id: modelId, userId: req.user.id, type: 'CATALOG', status: { not: 'INACTIVE' } },
+        });
+        if (!model) {
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
+        }
+        const imageUrls = body.imageUrls;
+        const price = body.price;
+        const product = await prisma.model.update({
+            where: { id: model.id },
+            data: {
+                name: body.name ?? undefined,
+                description: body.description ?? undefined,
+                category: body.category ?? undefined,
+                priceRangeMin: price ?? undefined,
+                priceRangeMax: price ?? undefined,
+                viewerDataKey: imageUrls?.[0] ?? undefined,
+                sourceImage: imageUrls ? JSON.stringify(imageUrls) : undefined,
+            },
+        });
+        res.json({ success: true, product: toCatalogProduct(product) });
+    }
+    catch (error) {
+        if (error instanceof zod_1.z.ZodError) {
+            return res.status(400).json({ error: 'Ürün bilgileri eksik veya geçersiz.' });
+        }
+        res.status(500).json({ error: 'Ürün güncellenemedi' });
+    }
+});
 router.delete('/:modelId', auth_1.authenticateToken, async (req, res) => {
     try {
         const { modelId } = req.params;
@@ -305,10 +382,10 @@ router.delete('/:modelId', auth_1.authenticateToken, async (req, res) => {
             select: { id: true, userId: true, type: true },
         });
         if (!model || model.type !== 'CATALOG') {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         if (model.userId !== req.user.id) {
-            return res.status(403).json({ error: 'Bu urunu silme yetkiniz yok' });
+            return res.status(403).json({ error: 'Bu ürünü silme yetkiniz yok' });
         }
         await prisma.model.update({
             where: { id: modelId },
@@ -317,7 +394,7 @@ router.delete('/:modelId', auth_1.authenticateToken, async (req, res) => {
         res.json({ success: true });
     }
     catch (error) {
-        res.status(500).json({ error: 'Urun silinemedi' });
+        res.status(500).json({ error: 'Ürün silinemedi' });
     }
 });
 router.get('/secure-view/:modelId', auth_1.authenticateToken, async (req, res) => {

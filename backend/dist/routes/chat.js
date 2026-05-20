@@ -24,14 +24,17 @@ const orderStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['ORDERED', 'PREPARING', 'SHIPPED', 'COMPLETED', 'CANCELLED']),
 });
 const statusLabels = {
-    ORDERED: 'Siparis alindi',
-    PREPARING: 'Hazirlaniyor',
+    ORDERED: 'Sipariş alındı',
+    PREPARING: 'Hazırlanıyor',
     SHIPPED: 'Kargoya verildi',
-    COMPLETED: 'Tamamlandi',
-    CANCELLED: 'Iptal edildi',
+    COMPLETED: 'Tamamlandı',
+    CANCELLED: 'İptal edildi',
 };
 function getConversationPrice(conversation) {
     return conversation.model?.priceRangeMin ?? conversation.model?.priceRangeMax ?? 0;
+}
+function getUserDisplayName(user) {
+    return user.role === 'SELLER' ? user.companyName || user.name : user.name;
 }
 async function toConversationSummary(conversation, userId) {
     const isBuyer = conversation.buyerId === userId;
@@ -50,11 +53,12 @@ async function toConversationSummary(conversation, userId) {
         modelName: conversation.model?.name,
         modelType: conversation.modelType,
         status: conversation.status,
-        statusLabel: statusLabels[conversation.status] || (conversation.status === 'ACTIVE' ? 'Mesajlasma' : conversation.status),
+        statusLabel: statusLabels[conversation.status] || (conversation.status === 'ACTIVE' ? 'Mesajlaşma' : conversation.status),
         price: getConversationPrice(conversation),
         participant: {
             id: participant.id,
-            name: participant.name,
+            name: getUserDisplayName(participant),
+            email: participant.email,
             role: isBuyer ? 'seller' : 'buyer',
         },
         latestMessage: latestMessage
@@ -68,6 +72,53 @@ async function toConversationSummary(conversation, userId) {
         updatedAt: conversation.updatedAt,
     };
 }
+function visibleConversationWhere(userId) {
+    return {
+        OR: [
+            { buyerId: userId, buyerArchivedAt: null },
+            { sellerId: userId, sellerArchivedAt: null },
+        ],
+    };
+}
+router.get('/sellers', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const sellers = await prisma.user.findMany({
+            where: {
+                role: 'SELLER',
+                id: { not: userId },
+            },
+            select: {
+                id: true,
+                name: true,
+                companyName: true,
+                email: true,
+                _count: {
+                    select: {
+                        aiModels: {
+                            where: {
+                                type: 'CATALOG',
+                                status: 'ACTIVE',
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { name: 'asc' },
+        });
+        res.json({
+            items: sellers.map((seller) => ({
+                id: seller.id,
+                name: seller.companyName || seller.name,
+                email: seller.email,
+                activeProductCount: seller._count.aiModels,
+            })),
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Satıcı listesi alınamadı' });
+    }
+});
 router.post('/new', auth_1.authenticateToken, async (req, res) => {
     try {
         const { modelId, type, sellerId } = createConversationSchema.parse(req.body);
@@ -80,6 +131,16 @@ router.post('/new', auth_1.authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Model bulunamadı' });
         }
         const finalSellerId = sellerId || model.userId;
+        const seller = await prisma.user.findFirst({
+            where: { id: finalSellerId, role: 'SELLER' },
+            select: { id: true },
+        });
+        if (!seller) {
+            return res.status(400).json({ error: 'Mesaj göndermek için geçerli bir satıcı seçin.' });
+        }
+        if (finalSellerId === buyerId) {
+            return res.status(400).json({ error: 'Kendi hesabınıza mesaj başlatamazsınız.' });
+        }
         const existingConvo = await prisma.conversation.findFirst({
             where: {
                 buyerId,
@@ -104,8 +165,8 @@ router.post('/new', auth_1.authenticateToken, async (req, res) => {
                 conversationId: conversation.id,
                 senderId: buyerId,
                 content: model.type === 'CATALOG'
-                    ? `Bu urun hakkinda bilgi almak istiyorum: ${model.name || modelId}`
-                    : `Bu model için fiyat teklifi almak istiyorum: ${model.name || modelId}`,
+                    ? `Bu ürün hakkında bilgi almak istiyorum: ${model.name || modelId}`
+                    : `Bu AI modeli için fiyat teklifi almak istiyorum: ${model.name || modelId}`,
                 isQuote: false,
             },
         });
@@ -127,10 +188,10 @@ router.post('/order', auth_1.authenticateToken, async (req, res) => {
             include: { user: true },
         });
         if (!model) {
-            return res.status(404).json({ error: 'Urun bulunamadi' });
+            return res.status(404).json({ error: 'Ürün bulunamadı' });
         }
         if (model.userId === buyerId) {
-            return res.status(400).json({ error: 'Kendi urununuz icin siparis olusturamazsiniz.' });
+            return res.status(400).json({ error: 'Kendi ürününüz için sipariş oluşturamazsınız.' });
         }
         const price = model.priceRangeMin ?? model.priceRangeMax ?? 0;
         const totalPrice = price * quantity;
@@ -162,7 +223,7 @@ router.post('/order', auth_1.authenticateToken, async (req, res) => {
             data: {
                 conversationId: conversation.id,
                 senderId: buyerId,
-                content: `Siparis olusturuldu: ${model.name || modelId} - ${quantity} adet - TL ${totalPrice.toLocaleString('tr-TR')}`,
+                content: `Sipariş oluşturuldu: ${model.name || modelId} - ${quantity} adet - TL ${totalPrice.toLocaleString('tr-TR')}`,
                 isQuote: false,
             },
         });
@@ -170,18 +231,16 @@ router.post('/order', auth_1.authenticateToken, async (req, res) => {
     }
     catch (error) {
         if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({ error: 'Siparis icin gecerli urun bilgisi gerekli.' });
+            return res.status(400).json({ error: 'Sipariş için geçerli ürün bilgisi gerekli.' });
         }
-        res.status(500).json({ error: 'Siparis olusturulamadi' });
+        res.status(500).json({ error: 'Sipariş oluşturulamadı' });
     }
 });
 router.get('/inbox/list', auth_1.authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const conversations = await prisma.conversation.findMany({
-            where: {
-                OR: [{ buyerId: userId }, { sellerId: userId }],
-            },
+            where: visibleConversationWhere(userId),
             include: {
                 model: {
                     select: {
@@ -193,8 +252,8 @@ router.get('/inbox/list', auth_1.authenticateToken, async (req, res) => {
                         viewerDataKey: true,
                     },
                 },
-                buyer: { select: { id: true, name: true } },
-                seller: { select: { id: true, name: true } },
+                buyer: { select: { id: true, name: true, email: true, role: true, companyName: true } },
+                seller: { select: { id: true, name: true, email: true, role: true, companyName: true } },
                 messages: {
                     orderBy: { createdAt: 'desc' },
                     take: 1,
@@ -211,16 +270,14 @@ router.get('/inbox/list', auth_1.authenticateToken, async (req, res) => {
         res.json({ items });
     }
     catch (error) {
-        res.status(500).json({ error: 'Siparisler alinamadi' });
+        res.status(500).json({ error: 'Mesajlar alınamadı' });
     }
 });
 router.get('/notifications/summary', auth_1.authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const conversations = await prisma.conversation.findMany({
-            where: {
-                OR: [{ buyerId: userId }, { sellerId: userId }],
-            },
+            where: visibleConversationWhere(userId),
             select: {
                 id: true,
                 sellerId: true,
@@ -238,10 +295,10 @@ router.get('/notifications/summary', auth_1.authenticateToken, async (req, res) 
                 },
             });
         const sellerOrderCount = conversations.filter((conversation) => conversation.sellerId === userId && conversation.status === 'ORDERED').length;
-        res.json({ unreadCount, sellerOrderCount, total: Math.max(unreadCount, sellerOrderCount) });
+        res.json({ unreadCount, sellerOrderCount, total: unreadCount + sellerOrderCount });
     }
     catch (error) {
-        res.status(500).json({ error: 'Bildirimler alinamadi' });
+        res.status(500).json({ error: 'Bildirimler alınamadı' });
     }
 });
 router.patch('/:id/status', auth_1.authenticateToken, async (req, res) => {
@@ -252,17 +309,17 @@ router.patch('/:id/status', auth_1.authenticateToken, async (req, res) => {
         const conversation = await prisma.conversation.findFirst({
             where: {
                 id,
-                OR: [{ buyerId: userId }, { sellerId: userId }],
+                ...visibleConversationWhere(userId),
             },
             include: { model: true },
         });
         if (!conversation) {
-            return res.status(404).json({ error: 'Siparis bulunamadi' });
+            return res.status(404).json({ error: 'Sipariş bulunamadı' });
         }
         const isSeller = conversation.sellerId === userId;
         const canChangeStatus = isSeller || status === 'CANCELLED';
         if (!canChangeStatus) {
-            return res.status(403).json({ error: 'Siparis durumunu guncelleme yetkiniz yok' });
+            return res.status(403).json({ error: 'Sipariş durumunu güncelleme yetkiniz yok' });
         }
         const updated = await prisma.conversation.update({
             where: { id },
@@ -275,7 +332,7 @@ router.patch('/:id/status', auth_1.authenticateToken, async (req, res) => {
             data: {
                 conversationId: id,
                 senderId: userId,
-                content: `Siparis durumu guncellendi: ${statusLabels[status]}`,
+                content: `Sipariş durumu güncellendi: ${statusLabels[status]}`,
                 isQuote: false,
             },
         });
@@ -283,9 +340,35 @@ router.patch('/:id/status', auth_1.authenticateToken, async (req, res) => {
     }
     catch (error) {
         if (error instanceof zod_1.z.ZodError) {
-            return res.status(400).json({ error: 'Gecersiz siparis durumu.' });
+            return res.status(400).json({ error: 'Geçersiz sipariş durumu.' });
         }
-        res.status(500).json({ error: 'Siparis durumu guncellenemedi' });
+        res.status(500).json({ error: 'Sipariş durumu güncellenemedi' });
+    }
+});
+router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const conversation = await prisma.conversation.findFirst({
+            where: {
+                id,
+                OR: [{ buyerId: userId }, { sellerId: userId }],
+            },
+            select: { id: true, buyerId: true, sellerId: true },
+        });
+        if (!conversation) {
+            return res.status(404).json({ error: 'Sohbet bulunamadı' });
+        }
+        await prisma.conversation.update({
+            where: { id },
+            data: conversation.buyerId === userId
+                ? { buyerArchivedAt: new Date() }
+                : { sellerArchivedAt: new Date() },
+        });
+        res.json({ success: true });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Sohbet kaldırılamadı' });
     }
 });
 router.get('/:id', auth_1.authenticateToken, async (req, res) => {
@@ -306,6 +389,7 @@ router.get('/:id', auth_1.authenticateToken, async (req, res) => {
                                 id: true,
                                 name: true,
                                 role: true,
+                                companyName: true,
                             },
                         },
                     },
@@ -322,10 +406,10 @@ router.get('/:id', auth_1.authenticateToken, async (req, res) => {
                     },
                 },
                 buyer: {
-                    select: { id: true, name: true },
+                    select: { id: true, name: true, email: true, role: true, companyName: true },
                 },
                 seller: {
-                    select: { id: true, name: true },
+                    select: { id: true, name: true, email: true, role: true, companyName: true },
                 },
             },
         });
@@ -345,7 +429,7 @@ router.get('/:id', auth_1.authenticateToken, async (req, res) => {
         const messages = conversation.messages.map((msg) => ({
             id: msg.id,
             senderId: msg.senderId,
-            senderName: msg.sender.name,
+            senderName: getUserDisplayName(msg.sender),
             senderRole: msg.senderId === conversation.buyerId ? 'user' : 'seller',
             content: msg.content,
             timestamp: msg.createdAt,
@@ -363,7 +447,8 @@ router.get('/:id', auth_1.authenticateToken, async (req, res) => {
             model: conversation.model,
             participant: {
                 id: participant.id,
-                name: participant.name,
+                name: getUserDisplayName(participant),
+                email: participant.email,
                 role: isBuyer ? 'seller' : 'buyer',
             },
             messages,
@@ -382,7 +467,7 @@ router.post('/:id/messages', auth_1.authenticateToken, async (req, res) => {
         const conversation = await prisma.conversation.findFirst({
             where: {
                 id,
-                OR: [{ buyerId: senderId }, { sellerId: senderId }],
+                ...visibleConversationWhere(senderId),
             },
         });
         if (!conversation) {
@@ -398,7 +483,7 @@ router.post('/:id/messages', auth_1.authenticateToken, async (req, res) => {
             },
             include: {
                 sender: {
-                    select: { id: true, name: true, role: true },
+                    select: { id: true, name: true, role: true, companyName: true },
                 },
             },
         });
@@ -409,7 +494,7 @@ router.post('/:id/messages', auth_1.authenticateToken, async (req, res) => {
         res.json({
             id: message.id,
             senderId: message.senderId,
-            senderName: message.sender.name,
+            senderName: getUserDisplayName(message.sender),
             senderRole: message.senderId === conversation.buyerId ? 'user' : 'seller',
             content: message.content,
             timestamp: message.createdAt,

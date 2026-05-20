@@ -15,14 +15,19 @@ const chat_1 = __importDefault(require("./routes/chat"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
+const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
+function readPositiveInteger(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
 }));
 const aiLimiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
+    windowMs: readPositiveInteger(process.env.AI_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+    max: readPositiveInteger(process.env.AI_RATE_LIMIT_MAX, DEFAULT_AI_RATE_LIMIT_MAX),
     message: { error: 'AI üretim limiti aşıldı. Lütfen biraz sonra tekrar deneyin.' },
 });
 app.use(express_1.default.json({ limit: '10mb' }));

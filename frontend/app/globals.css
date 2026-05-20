@@ -36,15 +36,10 @@ body {
 }
 
 .desktop-nav,
-.desktop-action,
-.desktop-profile,
 .desktop-text,
-.desktop-subtitle {
+.desktop-subtitle,
+.profile-trigger-text {
   display: none;
-}
-
-.mobile-menu-trigger {
-  display: inline-flex;
 }
 
 .mobile-nav-panel {
@@ -56,26 +51,11 @@ body {
     display: flex;
   }
 
-  .desktop-action {
-    display: inline-flex;
-  }
-
-  .desktop-text {
-    display: inline;
-  }
-
   .desktop-subtitle {
     display: block;
   }
 
-  .mobile-menu-trigger,
-  .mobile-nav-panel {
-    display: none;
-  }
-}
-
-@media (min-width: 768px) {
-  .desktop-profile {
-    display: flex;
+  .profile-trigger-text {
+    display: block;
   }
 }

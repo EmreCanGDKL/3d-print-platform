@@ -12,6 +12,7 @@ model User {
   email     String   @unique
   password  String
   name      String
+  companyName String?
   role      String   @default("USER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,6 +73,8 @@ model Conversation {
   modelId   String
   modelType String   // "AI" veya "CATALOG"
   status    String   @default("ACTIVE") // "ACTIVE", "ARCHIVED", "COMPLETED"
+  buyerArchivedAt DateTime?
+  sellerArchivedAt DateTime?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

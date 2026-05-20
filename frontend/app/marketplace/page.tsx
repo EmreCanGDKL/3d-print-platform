@@ -30,9 +30,9 @@ type BackendCatalogModel = {
 
 const categoryLabels: Record<string, string> = {
   art: 'Sanat ve dekor',
-  functional: 'Fonksiyonel parca',
-  figurine: 'Figur',
-  mechanical: 'Mekanik parca',
+  functional: 'Fonksiyonel parça',
+  figurine: 'Figür',
+  mechanical: 'Mekanik parça',
   jewelry: 'Aksesuar',
 };
 
@@ -53,8 +53,8 @@ export default async function MarketplacePage() {
 
     return {
       id: model.id,
-      name: model.name?.trim() || 'Adsiz urun',
-      description: (model.description ?? '').trim() || 'Satici bu model icin henuz aciklama eklememis.',
+      name: model.name?.trim() || 'Adsız ürün',
+      description: (model.description ?? '').trim() || 'Satıcı bu model için henüz açıklama eklememiş.',
       category,
       categoryLabel: categoryLabels[category] ?? category,
       modelUrl: model.modelUrl ?? model.viewerDataKey ?? '',
@@ -64,7 +64,7 @@ export default async function MarketplacePage() {
       priceRangeMax: priceMax,
       ratingAverage: model.ratingAverage ?? 0,
       ratingCount: model.ratingCount ?? 0,
-      seller: { id: model.seller?.id ?? model.user?.id ?? '', name: model.seller?.name ?? model.user?.name ?? 'Satici' },
+      seller: { id: model.seller?.id ?? model.user?.id ?? '', name: model.seller?.name ?? model.user?.name ?? 'Satıcı' },
     };
   });
 

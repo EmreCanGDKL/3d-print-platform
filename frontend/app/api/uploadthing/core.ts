@@ -12,7 +12,7 @@ export const uploadRouter = {
       return {};
     })
     .onUploadComplete(({ file }) => {
-      console.log("[uploadthing] Urun gorseli yuklendi:", file.name);
+      console.log("[uploadthing] Ürün görseli yüklendi:", file.name);
     }),
   modelUploader: f(
     { blob: { maxFileSize: "128MB", maxFileCount: 1 } },
