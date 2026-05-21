@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowRight, BadgeCheck, Box, Cpu, ImageIcon, MessageSquare, Sparkles } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 import { useLanguage } from '@/lib/language';
+
+const PREVIEW_ROTATION_MS = 8000;
 
 type CatalogPreviewProduct = {
   id: string;
@@ -105,6 +108,8 @@ const copy = {
 export default function Home() {
   const { language } = useLanguage();
   const text = copy[language];
+  const [previewProducts, setPreviewProducts] = useState<CatalogPreviewProduct[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const [previewProduct, setPreviewProduct] = useState<CatalogPreviewProduct | null>(null);
 
   useEffect(() => {
@@ -112,19 +117,31 @@ export default function Home() {
 
     const loadPreviewProduct = async () => {
       try {
-        const response = await fetch('/api/models', { cache: 'no-store' });
+        const response = await fetch(apiUrl('/api/models'), { cache: 'no-store' });
         if (!response.ok) return;
 
         const products = (await response.json()) as CatalogPreviewProduct[];
         if (!Array.isArray(products) || products.length === 0) {
-          if (!cancelled) setPreviewProduct(null);
+          if (!cancelled) {
+            setPreviewProducts([]);
+            setPreviewProduct(null);
+            setPreviewIndex(0);
+          }
           return;
         }
 
         const randomIndex = Math.floor(Math.random() * products.length);
-        if (!cancelled) setPreviewProduct(products[randomIndex]);
+        if (!cancelled) {
+          setPreviewProducts(products);
+          setPreviewIndex(randomIndex);
+          setPreviewProduct(products[randomIndex]);
+        }
       } catch {
-        if (!cancelled) setPreviewProduct(null);
+        if (!cancelled) {
+          setPreviewProducts([]);
+          setPreviewProduct(null);
+          setPreviewIndex(0);
+        }
       }
     };
 
@@ -136,6 +153,20 @@ export default function Home() {
       window.removeEventListener('auth-changed', loadPreviewProduct);
     };
   }, []);
+
+  useEffect(() => {
+    if (previewProducts.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      setPreviewIndex((currentIndex) => {
+        const nextIndex = (currentIndex + 1) % previewProducts.length;
+        setPreviewProduct(previewProducts[nextIndex]);
+        return nextIndex;
+      });
+    }, PREVIEW_ROTATION_MS);
+
+    return () => window.clearInterval(interval);
+  }, [previewProducts]);
 
   const previewImage = previewProduct?.imageUrls?.[0] || previewProduct?.modelUrl || '';
   const previewPrice = previewProduct?.priceRangeMin ?? previewProduct?.priceRangeMax ?? 0;
