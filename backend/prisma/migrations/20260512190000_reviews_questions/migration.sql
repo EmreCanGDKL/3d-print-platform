@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "product_reviews" (
+CREATE TABLE IF NOT EXISTS "product_reviews" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "modelId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE "product_reviews" (
 );
 
 -- CreateTable
-CREATE TABLE "product_questions" (
+CREATE TABLE IF NOT EXISTS "product_questions" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "modelId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -28,19 +28,19 @@ CREATE TABLE "product_questions" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_reviews_modelId_userId_key" ON "product_reviews"("modelId", "userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "product_reviews_modelId_userId_key" ON "product_reviews"("modelId", "userId");
 
 -- CreateIndex
-CREATE INDEX "product_reviews_modelId_idx" ON "product_reviews"("modelId");
+CREATE INDEX IF NOT EXISTS "product_reviews_modelId_idx" ON "product_reviews"("modelId");
 
 -- CreateIndex
-CREATE INDEX "product_reviews_userId_idx" ON "product_reviews"("userId");
+CREATE INDEX IF NOT EXISTS "product_reviews_userId_idx" ON "product_reviews"("userId");
 
 -- CreateIndex
-CREATE INDEX "product_questions_modelId_idx" ON "product_questions"("modelId");
+CREATE INDEX IF NOT EXISTS "product_questions_modelId_idx" ON "product_questions"("modelId");
 
 -- CreateIndex
-CREATE INDEX "product_questions_userId_idx" ON "product_questions"("userId");
+CREATE INDEX IF NOT EXISTS "product_questions_userId_idx" ON "product_questions"("userId");
 
 -- CreateIndex
-CREATE INDEX "product_questions_answerUserId_idx" ON "product_questions"("answerUserId");
+CREATE INDEX IF NOT EXISTS "product_questions_answerUserId_idx" ON "product_questions"("answerUserId");

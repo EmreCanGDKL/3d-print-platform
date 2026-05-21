@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE "users" ADD COLUMN "companyName" TEXT;
-
--- AlterTable
-ALTER TABLE "conversations" ADD COLUMN "buyerArchivedAt" DATETIME;
-ALTER TABLE "conversations" ADD COLUMN "sellerArchivedAt" DATETIME;
+-- This migration is intentionally left as a marker.
+-- SQLite deploys on Render can have these columns already present from a previous partial sync.
+-- The backend startup compatibility check adds any missing columns safely.

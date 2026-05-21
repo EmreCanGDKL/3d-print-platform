@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import aiRoutes from './routes/ai';
 import modelRoutes from './routes/models';
@@ -13,6 +14,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
+const bootstrapPrisma = new PrismaClient();
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URLS,
@@ -26,6 +28,67 @@ const allowedOrigins = [
 function readPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function executeSql(sql: string) {
+  await bootstrapPrisma.$executeRawUnsafe(sql);
+}
+
+async function addSqliteColumnIfMissing(sql: string) {
+  try {
+    await executeSql(sql);
+  } catch (error: any) {
+    const message = String(error?.message || error);
+    if (!message.toLowerCase().includes('duplicate column')) {
+      throw error;
+    }
+  }
+}
+
+async function ensureSqliteCompatibility() {
+  const databaseUrl = process.env.DATABASE_URL || '';
+  if (!databaseUrl.startsWith('file:')) return;
+
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS "product_reviews" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "modelId" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "rating" INTEGER NOT NULL,
+      "comment" TEXT NOT NULL,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "product_reviews_modelId_fkey" FOREIGN KEY ("modelId") REFERENCES "models" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "product_reviews_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    );
+  `);
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS "product_questions" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "modelId" TEXT NOT NULL,
+      "userId" TEXT NOT NULL,
+      "question" TEXT NOT NULL,
+      "answer" TEXT,
+      "answerUserId" TEXT,
+      "answeredAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "product_questions_modelId_fkey" FOREIGN KEY ("modelId") REFERENCES "models" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "product_questions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+      CONSTRAINT "product_questions_answerUserId_fkey" FOREIGN KEY ("answerUserId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    );
+  `);
+
+  await executeSql('CREATE UNIQUE INDEX IF NOT EXISTS "product_reviews_modelId_userId_key" ON "product_reviews"("modelId", "userId");');
+  await executeSql('CREATE INDEX IF NOT EXISTS "product_reviews_modelId_idx" ON "product_reviews"("modelId");');
+  await executeSql('CREATE INDEX IF NOT EXISTS "product_reviews_userId_idx" ON "product_reviews"("userId");');
+  await executeSql('CREATE INDEX IF NOT EXISTS "product_questions_modelId_idx" ON "product_questions"("modelId");');
+  await executeSql('CREATE INDEX IF NOT EXISTS "product_questions_userId_idx" ON "product_questions"("userId");');
+  await executeSql('CREATE INDEX IF NOT EXISTS "product_questions_answerUserId_idx" ON "product_questions"("answerUserId");');
+
+  await addSqliteColumnIfMissing('ALTER TABLE "users" ADD COLUMN "companyName" TEXT;');
+  await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "buyerArchivedAt" DATETIME;');
+  await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "sellerArchivedAt" DATETIME;');
 }
 
 app.use(helmet());
@@ -49,6 +112,22 @@ const aiLimiter = rateLimit({
 });
 
 app.use(express.json({ limit: '10mb' }));
+
+const sqliteCompatibilityReady = ensureSqliteCompatibility()
+  .catch((error) => {
+    console.error('Database compatibility check failed:', error);
+    throw error;
+  })
+  .finally(() => bootstrapPrisma.$disconnect());
+
+app.use(async (_req, res, next) => {
+  try {
+    await sqliteCompatibilityReady;
+    next();
+  } catch {
+    res.status(500).json({ error: 'Veritabanı hazırlığı tamamlanamadı.' });
+  }
+});
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
