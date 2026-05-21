@@ -8,6 +8,8 @@ import {
   ArrowRight,
   BadgeCheck,
   Box,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Heart,
   ImageIcon,
@@ -25,6 +27,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 import { addToCart } from '@/lib/cart';
 import { getFavoriteIds, toggleFavorite } from '@/lib/favorites';
 import { useLanguage } from '@/lib/language';
@@ -114,6 +117,10 @@ const copy = {
     pricePrefix: 'TL',
     noImage: 'Görsel yok',
     images: 'görsel',
+    gallery: 'Ürün görselleri',
+    previousImage: 'Önceki görsel',
+    nextImage: 'Sonraki görsel',
+    openGallery: 'Ürün görsellerini aç',
   },
   en: {
     previewLoading: 'Preparing preview...',
@@ -165,6 +172,10 @@ const copy = {
     pricePrefix: 'TL',
     noImage: 'No image',
     images: 'images',
+    gallery: 'Product images',
+    previousImage: 'Previous image',
+    nextImage: 'Next image',
+    openGallery: 'Open product images',
   },
 };
 
@@ -281,7 +292,7 @@ export default function MarketplaceCatalog({ models }: Props) {
 
     setDeletingId(id);
     try {
-      const response = await fetch(`/api/models/${id}`, {
+      const response = await fetch(apiUrl(`/api/models/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -464,7 +475,14 @@ export default function MarketplaceCatalog({ models }: Props) {
                   className="grid overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg md:grid-cols-[220px_1fr]"
                 >
                   <div className="relative h-56 bg-stone-100 md:h-full">
-                    <ProductMedia model={model} />
+                    <button
+                      type="button"
+                      onClick={() => setDetailModelId(model.id)}
+                      className="block h-full w-full text-left"
+                      aria-label={text.openGallery}
+                    >
+                      <ProductMedia model={model} />
+                    </button>
                     {model.categoryLabel ? (
                       <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
                         {model.categoryLabel}
@@ -523,7 +541,7 @@ export default function MarketplaceCatalog({ models }: Props) {
                           {deletingId === model.id ? text.removing : text.remove}
                         </button>
                       )}
-                      {user?.role !== 'SELLER' && user?.id !== model.seller.id && (
+                      {user?.id !== model.seller.id && (
                         <button
                           type="button"
                           onClick={() => handleAddToCart(model)}
@@ -533,7 +551,7 @@ export default function MarketplaceCatalog({ models }: Props) {
                           {text.addToCart}
                         </button>
                       )}
-                      {user?.role !== 'SELLER' && (
+                      {user?.id !== model.seller.id && (
                         <button
                           type="button"
                           onClick={() => handleMessage(model.id)}
@@ -681,16 +699,18 @@ function ProductDetailModal({
   const [comment, setComment] = useState('');
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const loadDetail = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch(`/api/models/${modelId}/details`, { cache: 'no-store' });
+      const response = await fetch(apiUrl(`/api/models/${modelId}/details`), { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || modalText.loadFailed);
       setDetail(data);
+      setCurrentImageIndex(0);
     } catch (err: any) {
       setError(err.message || modalText.loadFailed);
     } finally {
@@ -712,7 +732,7 @@ function ProductDetailModal({
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`/api/models/${modelId}/questions`, {
+      const response = await fetch(apiUrl(`/api/models/${modelId}/questions`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -737,7 +757,7 @@ function ProductDetailModal({
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`/api/models/${modelId}/reviews`, {
+      const response = await fetch(apiUrl(`/api/models/${modelId}/reviews`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -764,7 +784,7 @@ function ProductDetailModal({
     setSubmitting(true);
     setError('');
     try {
-      const response = await fetch(`/api/models/${modelId}/questions/${questionId}/answer`, {
+      const response = await fetch(apiUrl(`/api/models/${modelId}/questions/${questionId}/answer`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -781,6 +801,18 @@ function ProductDetailModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const images = detail?.imageUrls.filter(Boolean) ?? [];
+  const selectedImage = images[currentImageIndex] || images[0] || '';
+  const hasMultipleImages = images.length > 1;
+  const showPreviousImage = () => {
+    if (images.length === 0) return;
+    setCurrentImageIndex((index) => (index - 1 + images.length) % images.length);
+  };
+  const showNextImage = () => {
+    if (images.length === 0) return;
+    setCurrentImageIndex((index) => (index + 1) % images.length);
   };
 
   return (
@@ -811,17 +843,57 @@ function ProductDetailModal({
           <div className="grid gap-6 p-5 lg:grid-cols-[320px_1fr]">
             <div>
               <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-100">
-                {detail.imageUrls[0] ? (
-                  <img src={detail.imageUrls[0]} alt={detail.name || modalText.productAlt} className="aspect-square w-full object-cover" />
+                {selectedImage ? (
+                  <div className="relative">
+                    <img src={selectedImage} alt={detail.name || modalText.productAlt} className="aspect-square w-full object-cover" />
+                    {hasMultipleImages && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={showPreviousImage}
+                          className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-sm transition hover:bg-white"
+                          aria-label={copy[language].previousImage}
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={showNextImage}
+                          className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-sm transition hover:bg-white"
+                          aria-label={copy[language].nextImage}
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white">
+                          {currentImageIndex + 1}/{images.length}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex aspect-square items-center justify-center text-sm text-slate-500">{modalText.noImage}</div>
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-4 gap-2">
-                {detail.imageUrls.slice(1).map((image) => (
-                  <img key={image} src={image} alt="" className="aspect-square rounded-xl border border-stone-200 object-cover" />
-                ))}
-              </div>
+              {images.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{copy[language].gallery}</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {images.map((image, index) => (
+                      <button
+                        key={`${image}-${index}`}
+                        type="button"
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={`overflow-hidden rounded-xl border transition ${
+                          index === currentImageIndex ? 'border-emerald-600 ring-2 ring-emerald-100' : 'border-stone-200'
+                        }`}
+                        aria-label={`${copy[language].gallery} ${index + 1}`}
+                      >
+                        <img src={image} alt="" className="aspect-square w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 fill-amber-400 text-amber-400" />

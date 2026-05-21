@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Inbox, MessageSquare, Search, Trash2 } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 import { useLanguage } from '@/lib/language';
 
 type StoredUser = {
@@ -130,7 +131,7 @@ export default function MessagesPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/chat/inbox/list', {
+      const response = await fetch(apiUrl('/api/chat/inbox/list'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await readApiJson<{ items?: MessageItem[]; error?: string }>(response, text.apiError);
@@ -195,7 +196,7 @@ export default function MessagesPage() {
     setError('');
 
     try {
-      const response = await fetch(`/api/chat/${id}`, {
+      const response = await fetch(apiUrl(`/api/chat/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -221,13 +222,13 @@ export default function MessagesPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div>
+      <div className="mb-8 grid w-full gap-4 md:grid-cols-[minmax(0,1fr)_24rem] md:items-center">
+        <div className="min-w-0 text-left">
           <p className="text-sm font-semibold text-emerald-800">{text.eyebrow}</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{text.title}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{text.description}</p>
         </div>
-        <div className="relative w-full lg:max-w-sm">
+        <div className="relative w-full md:justify-self-end">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
