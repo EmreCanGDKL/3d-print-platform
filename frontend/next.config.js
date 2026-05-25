@@ -24,6 +24,7 @@ const nextConfig = {
       { source: '/api/ai/:path*', destination: `${base}/api/ai/:path*` },
       { source: '/api/models/:path*', destination: `${base}/api/models/:path*` },
       { source: '/api/chat/:path*', destination: `${base}/api/chat/:path*` },
+      { source: '/api/examples/:path*', destination: `${base}/api/examples/:path*` },
     ];
   },
 };

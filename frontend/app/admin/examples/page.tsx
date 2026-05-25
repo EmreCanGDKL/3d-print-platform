@@ -19,6 +19,11 @@ type StoredUser = {
   role?: string;
 };
 
+type UserResponse = {
+  user?: StoredUser;
+  error?: string;
+};
+
 const emptyForm = {
   title: '',
   category: '',
@@ -91,20 +96,29 @@ export default function AdminExamplesPage() {
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const rawUser = localStorage.getItem('user');
     const token = getToken();
-    if (!rawUser || !token) {
+    if (!token) {
       router.replace('/login');
       return;
     }
 
-    try {
-      const user = JSON.parse(rawUser) as StoredUser;
-      setIsAdmin(user.role === 'ADMIN');
-    } catch {
-      router.replace('/login');
-    }
-  }, [router]);
+    const verifyAdmin = async () => {
+      try {
+        const response = await fetchWithTimeout('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readJsonResponse<UserResponse>(response, text.apiFallback);
+        if (!response.ok || !data.user) throw new Error(data.error || text.apiFallback);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('auth-changed'));
+        setIsAdmin(data.user.role === 'ADMIN');
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    void verifyAdmin();
+  }, [router, text.apiFallback]);
 
   const loadExamples = useCallback(async () => {
     try {

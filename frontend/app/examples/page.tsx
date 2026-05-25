@@ -19,6 +19,10 @@ type StoredUser = {
   role?: string;
 };
 
+type UserResponse = {
+  user?: StoredUser;
+};
+
 const copy = {
   tr: {
     eyebrow: 'Örnekler / Hızlı Başlat',
@@ -127,14 +131,26 @@ export default function ExamplesPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    try {
-      const rawUser = localStorage.getItem('user');
-      const user = rawUser ? (JSON.parse(rawUser) as StoredUser) : null;
-      setIsAdmin(user?.role === 'ADMIN');
-    } catch {
-      setIsAdmin(false);
-    }
-  }, []);
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const syncUser = async () => {
+      try {
+        const response = await fetchWithTimeout('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await readJsonResponse<UserResponse>(response, text.apiFallback);
+        if (!response.ok || !data.user) return;
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.dispatchEvent(new Event('auth-changed'));
+        setIsAdmin(data.user.role === 'ADMIN');
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    void syncUser();
+  }, [text.apiFallback]);
 
   useEffect(() => {
     const loadExamples = async () => {
