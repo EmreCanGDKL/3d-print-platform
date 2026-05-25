@@ -8,6 +8,7 @@ import aiRoutes from './routes/ai';
 import modelRoutes from './routes/models';
 import chatRoutes from './routes/chat';
 import exampleRoutes from './routes/examples';
+import imageRoutes from './routes/images';
 
 dotenv.config();
 
@@ -139,6 +140,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/examples', exampleRoutes);
+app.use('/api/images', imageRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);

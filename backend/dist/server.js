@@ -13,6 +13,7 @@ const ai_1 = __importDefault(require("./routes/ai"));
 const models_1 = __importDefault(require("./routes/models"));
 const chat_1 = __importDefault(require("./routes/chat"));
 const examples_1 = __importDefault(require("./routes/examples"));
+const images_1 = __importDefault(require("./routes/images"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
@@ -131,6 +132,7 @@ app.use('/api/ai', ai_1.default);
 app.use('/api/models', models_1.default);
 app.use('/api/chat', chat_1.default);
 app.use('/api/examples', examples_1.default);
+app.use('/api/images', images_1.default);
 app.listen(PORT, () => {
     console.log(`Server ${PORT} portunda çalışıyor`);
 });

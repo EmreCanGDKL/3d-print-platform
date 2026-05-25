@@ -208,8 +208,13 @@ export default function AIGenerator() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const exampleTitle = params.get('title') || '';
-    const exampleCategory = params.get('category') || '';
-    const examplePrompt = params.get('prompt') || '';
+    const exampleCategory = params.get('category') || params.get('source') || params.get('query') || '';
+    const exampleQuery = params.get('query') || '';
+    const examplePrompt =
+      params.get('prompt') ||
+      (exampleTitle
+        ? `Bu referans görsele benzer, 3D baskıya uygun, temiz yüzeyli, STL/3MF üretimine uygun bir 3D model oluştur: ${exampleTitle}. Arama konusu: ${exampleQuery || exampleCategory}.`
+        : '');
     const exampleImageUrl = params.get('imageUrl') || '';
 
     if (!examplePrompt && !exampleImageUrl) return;
