@@ -227,8 +227,8 @@ export default function SellerProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
+      <div className="mb-8 flex flex-col items-start gap-4 text-left">
+        <div className="max-w-3xl">
           <h1 className="text-3xl font-bold tracking-tight text-slate-950">{text.title}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{text.description}</p>
         </div>

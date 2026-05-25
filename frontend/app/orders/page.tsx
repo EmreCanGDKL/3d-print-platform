@@ -59,7 +59,6 @@ const copy = {
     sellerTitle: 'Gelen siparişler',
     buyerTitle: 'Siparişlerim',
     description: 'Sipariş durumları ve sipariş bildirimleri burada toplanır. Mesaj konuşmaları ayrı mesaj ekranındadır.',
-    back: 'Kataloğa dön',
     emptyTitle: 'Henüz takip edilecek sipariş yok',
     emptyText: 'Bir ürün satın alındığında veya sipariş durumu değiştiğinde burada görünür.',
     product: 'Ürün',
@@ -92,7 +91,6 @@ const copy = {
     sellerTitle: 'Incoming orders',
     buyerTitle: 'My orders',
     description: 'Order statuses and order notifications are collected here. Message conversations live in the separate messages screen.',
-    back: 'Back to catalog',
     emptyTitle: 'No orders to track yet',
     emptyText: 'Orders and status changes will appear here.',
     product: 'Product',
@@ -209,22 +207,16 @@ export default function OrdersPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
+      <div className="mb-8 text-left">
+        <div className="max-w-3xl">
           <p className="text-sm font-semibold text-emerald-800">
             {user?.role === 'SELLER' ? text.sellerEyebrow : text.buyerEyebrow}
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             {user?.role === 'SELLER' ? text.sellerTitle : text.buyerTitle}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{text.description}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{text.description}</p>
         </div>
-        <Link
-          href="/marketplace"
-          className="inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100"
-        >
-          {text.back}
-        </Link>
       </div>
 
       {error && (

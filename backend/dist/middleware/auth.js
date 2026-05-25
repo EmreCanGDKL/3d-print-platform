@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const client_1 = require("@prisma/client");
+const admin_1 = require("../utils/admin");
 const prisma = new client_1.PrismaClient();
 const authenticateToken = async (req, res, next) => {
     try {
@@ -22,7 +23,7 @@ const authenticateToken = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({ error: 'User not found' });
         }
-        req.user = user;
+        req.user = { ...user, role: (0, admin_1.getEffectiveRole)(user) };
         next();
     }
     catch (error) {

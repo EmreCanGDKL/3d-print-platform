@@ -6,17 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("@prisma/client");
 const auth_1 = __importDefault(require("./routes/auth"));
 const ai_1 = __importDefault(require("./routes/ai"));
 const models_1 = __importDefault(require("./routes/models"));
 const chat_1 = __importDefault(require("./routes/chat"));
+const examples_1 = __importDefault(require("./routes/examples"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
-const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
 const bootstrapPrisma = new client_1.PrismaClient();
 const allowedOrigins = [
     process.env.FRONTEND_URL,
@@ -27,10 +26,6 @@ const allowedOrigins = [
     .flatMap((value) => value.split(','))
     .map((value) => value.trim().replace(/\/$/, ''))
     .filter(Boolean);
-function readPositiveInteger(value, fallback) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 async function executeSql(sql) {
     await bootstrapPrisma.$executeRawUnsafe(sql);
 }
@@ -87,6 +82,18 @@ async function ensureSqliteCompatibility() {
     await addSqliteColumnIfMissing('ALTER TABLE "users" ADD COLUMN "companyName" TEXT;');
     await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "buyerArchivedAt" DATETIME;');
     await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "sellerArchivedAt" DATETIME;');
+    await executeSql(`
+    CREATE TABLE IF NOT EXISTS "example_items" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "category" TEXT NOT NULL,
+      "imageUrl" TEXT NOT NULL,
+      "prompt" TEXT NOT NULL,
+      "tags" TEXT NOT NULL DEFAULT '[]',
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL
+    );
+  `);
 }
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
@@ -100,11 +107,6 @@ app.use((0, cors_1.default)({
     },
     credentials: true,
 }));
-const aiLimiter = (0, express_rate_limit_1.default)({
-    windowMs: readPositiveInteger(process.env.AI_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-    max: readPositiveInteger(process.env.AI_RATE_LIMIT_MAX, DEFAULT_AI_RATE_LIMIT_MAX),
-    message: { error: 'AI üretim limiti aşıldı. Lütfen biraz sonra tekrar deneyin.' },
-});
 app.use(express_1.default.json({ limit: '10mb' }));
 const sqliteCompatibilityReady = ensureSqliteCompatibility()
     .catch((error) => {
@@ -125,9 +127,10 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 app.use('/api/auth', auth_1.default);
-app.use('/api/ai', aiLimiter, ai_1.default);
+app.use('/api/ai', ai_1.default);
 app.use('/api/models', models_1.default);
 app.use('/api/chat', chat_1.default);
+app.use('/api/examples', examples_1.default);
 app.listen(PORT, () => {
     console.log(`Server ${PORT} portunda çalışıyor`);
 });

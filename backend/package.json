@@ -5,7 +5,7 @@
       "dev": "ts-node src/server.ts",
       "build": "tsc",
       "start": "node dist/server.js",
-      "render-build": "prisma db push --accept-data-loss && prisma generate && npm run build"
+      "render-build": "prisma db push && prisma generate && npm run build"
     },
     "dependencies": {
       "@prisma/client": "^5.7.0",

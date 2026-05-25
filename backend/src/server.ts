@@ -1,19 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import aiRoutes from './routes/ai';
 import modelRoutes from './routes/models';
 import chatRoutes from './routes/chat';
+import exampleRoutes from './routes/examples';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const DEFAULT_AI_RATE_LIMIT_MAX = process.env.NODE_ENV === 'development' ? 50 : 5;
 const bootstrapPrisma = new PrismaClient();
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -24,11 +23,6 @@ const allowedOrigins = [
   .flatMap((value) => value!.split(','))
   .map((value) => value.trim().replace(/\/$/, ''))
   .filter(Boolean);
-
-function readPositiveInteger(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 async function executeSql(sql: string) {
   await bootstrapPrisma.$executeRawUnsafe(sql);
@@ -89,6 +83,19 @@ async function ensureSqliteCompatibility() {
   await addSqliteColumnIfMissing('ALTER TABLE "users" ADD COLUMN "companyName" TEXT;');
   await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "buyerArchivedAt" DATETIME;');
   await addSqliteColumnIfMissing('ALTER TABLE "conversations" ADD COLUMN "sellerArchivedAt" DATETIME;');
+
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS "example_items" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "category" TEXT NOT NULL,
+      "imageUrl" TEXT NOT NULL,
+      "prompt" TEXT NOT NULL,
+      "tags" TEXT NOT NULL DEFAULT '[]',
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL
+    );
+  `);
 }
 
 app.use(helmet());
@@ -104,12 +111,6 @@ app.use(cors({
   },
   credentials: true,
 }));
-
-const aiLimiter = rateLimit({
-  windowMs: readPositiveInteger(process.env.AI_RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
-  max: readPositiveInteger(process.env.AI_RATE_LIMIT_MAX, DEFAULT_AI_RATE_LIMIT_MAX),
-  message: { error: 'AI üretim limiti aşıldı. Lütfen biraz sonra tekrar deneyin.' },
-});
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -134,9 +135,10 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/examples', exampleRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);

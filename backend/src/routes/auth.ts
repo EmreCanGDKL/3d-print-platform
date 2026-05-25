@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { getEffectiveRole } from '../utils/admin';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -36,13 +37,15 @@ const passwordSchema = z.object({
 });
 
 function toSafeUser(user: { id: string; email: string; name: string; role: string; companyName?: string | null }) {
+  const role = getEffectiveRole(user);
+
   return {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
+    role,
     companyName: user.companyName || null,
-    displayName: user.role === 'SELLER' ? user.companyName || user.name : user.name,
+    displayName: role === 'SELLER' ? user.companyName || user.name : user.name,
   };
 }
 

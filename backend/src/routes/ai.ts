@@ -61,7 +61,7 @@ router.post('/generate', authenticateToken, upload.single('image'), async (req: 
         userId,
         type: 'AI',
         status: 'PENDING',
-        prompt: type === 'text' ? prompt : null,
+        prompt: prompt || null,
         viewerDataKey: result.taskId,
         generationType: type,
       },
@@ -215,6 +215,7 @@ router.get('/history', authenticateToken, async (req: AuthRequest, res) => {
         id: true,
         status: true,
         prompt: true,
+        generationType: true,
         createdAt: true,
       },
     });

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { getEffectiveRole } from '../utils/admin';
 
 const prisma = new PrismaClient();
 
@@ -36,7 +37,7 @@ export const authenticateToken = async (
       return res.status(401).json({ error: 'User not found' });
     }
 
-    req.user = user;
+    req.user = { ...user, role: getEffectiveRole(user) };
     next();
   } catch (error) {
     return res.status(403).json({ error: 'Invalid token' });

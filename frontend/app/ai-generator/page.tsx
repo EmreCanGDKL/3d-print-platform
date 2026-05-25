@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle2, FileImage, MessageSquare, Sparkles, Type, UsersRound } from 'lucide-react';
 import { useAiGeneration } from '@/lib/ai-generation';
@@ -18,6 +18,50 @@ type Seller = {
   email: string;
   activeProductCount: number;
 };
+
+type AiHistoryItem = {
+  id: string;
+  status: string;
+  prompt: string | null;
+  generationType?: string | null;
+  createdAt: string;
+};
+
+function convertReferenceBlobToPng(blob: Blob, fileName: string) {
+  return new Promise<File>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth || 640;
+      canvas.height = image.naturalHeight || 640;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Canvas could not be created.'));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((pngBlob) => {
+        URL.revokeObjectURL(objectUrl);
+        if (!pngBlob) {
+          reject(new Error('Image could not be converted.'));
+          return;
+        }
+        resolve(new File([pngBlob], fileName, { type: 'image/png' }));
+      }, 'image/png');
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Image could not be loaded.'));
+    };
+
+    image.src = objectUrl;
+  });
+}
 
 const copy = {
   tr: {
@@ -42,6 +86,8 @@ const copy = {
     imageLabel: 'Referans görsel',
     chooseFile: 'Dosya seç',
     noFile: 'Dosya seçilmedi',
+    selectedExample: 'Seçilen örnek',
+    imageFallback: 'Referans görsel yüklenemedi. Prompt yine de hazırlandı.',
     generating: 'Üretiliyor...',
     generatingDescription: 'Model arka planda hazırlanıyor. Bu sayfadan çıkıp katalogda gezmeye devam edebilirsiniz.',
     apiTimeout: 'Sunucudan beklenen sürede yanıt alınamadı. Üretim yoğun olabilir; lütfen biraz sonra tekrar deneyin.',
@@ -56,6 +102,10 @@ const copy = {
     messageSeller: 'Seçili satıcıya mesaj at',
     chooseSeller: 'Devam etmek için bir satıcı seçin.',
     tipsTitle: 'Daha iyi sonuç için',
+    historyTitle: 'Eski üretimler',
+    historyEmpty: 'Henüz kayıtlı AI üretimi yok.',
+    historyLoadError: 'AI geçmişi alınamadı.',
+    viewHistory: 'Görüntüle',
     tips: [
       'Ölçü, kullanım alanı, yüzey tercihi ve parçanın dayanım beklentisini açık yazın.',
       'Görsel yüklerken sade arka planlı, tek objeli ve net ışıklı referanslar daha iyi çalışır.',
@@ -82,6 +132,8 @@ const copy = {
     promptLabel: 'Model description',
     promptPlaceholder: 'Ex. A modern matte desktop phone stand with cable-management channels...',
     imageLabel: 'Reference image',
+    selectedExample: 'Selected example',
+    imageFallback: 'Reference image could not load. The prompt is still ready.',
     chooseFile: 'Choose file',
     noFile: 'No file selected',
     generating: 'Generating...',
@@ -98,6 +150,10 @@ const copy = {
     messageSeller: 'Message selected seller',
     chooseSeller: 'Choose a seller to continue.',
     tipsTitle: 'For better results',
+    historyTitle: 'Past generations',
+    historyEmpty: 'No saved AI generations yet.',
+    historyLoadError: 'AI history could not be loaded.',
+    viewHistory: 'View',
     tips: [
       'Clearly describe dimensions, use case, surface preference, and strength expectations.',
       'For image uploads, clear single-object references with simple backgrounds work best.',
@@ -114,12 +170,17 @@ export default function AIGenerator() {
   const [mode, setMode] = useState<'text' | 'image'>('image');
   const [prompt, setPrompt] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState('');
+  const [referenceMeta, setReferenceMeta] = useState<{ title: string; category: string } | null>(null);
+  const [referenceImageFailed, setReferenceImageFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [modelPreviewUrl, setModelPreviewUrl] = useState<string | null>(null);
   const [validationError, setValidationError] = useState('');
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSellerId, setSelectedSellerId] = useState('');
   const [sellerError, setSellerError] = useState('');
+  const [history, setHistory] = useState<AiHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState('');
   const {
     generating,
     generatedModelId,
@@ -133,6 +194,7 @@ export default function AIGenerator() {
 
   useEffect(() => {
     void loadSellers();
+    void loadHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,6 +204,53 @@ export default function AIGenerator() {
       setGeneratedModelId(modelId);
     }
   }, [setGeneratedModelId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const exampleTitle = params.get('title') || '';
+    const exampleCategory = params.get('category') || '';
+    const examplePrompt = params.get('prompt') || '';
+    const exampleImageUrl = params.get('imageUrl') || '';
+
+    if (!examplePrompt && !exampleImageUrl) return;
+
+    setMode('image');
+    setPrompt(examplePrompt);
+    setReferenceMeta(exampleTitle ? { title: exampleTitle, category: exampleCategory } : null);
+    setReferencePreviewUrl(exampleImageUrl);
+    setReferenceImageFailed(false);
+
+    if (!exampleImageUrl) return;
+
+    let cancelled = false;
+
+    const loadExampleImage = async () => {
+      try {
+        const sourceUrl = exampleImageUrl.startsWith('/')
+          ? exampleImageUrl
+          : `/api/examples/proxy-image?url=${encodeURIComponent(exampleImageUrl)}`;
+        const response = await fetchWithTimeout(sourceUrl, {}, 30000);
+        if (!response.ok) throw new Error('Reference image could not be loaded.');
+        const blob = await response.blob();
+        const fileName = `${(exampleTitle || 'example-reference').toLowerCase().replace(/[^a-z0-9]+/gi, '-')}.png`;
+        const file = await convertReferenceBlobToPng(blob, fileName);
+        if (!cancelled) {
+          setImageFile(file);
+        }
+      } catch {
+        if (!cancelled) {
+          setImageFile(null);
+          setReferenceImageFailed(true);
+        }
+      }
+    };
+
+    void loadExampleImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!generatedModelId) {
@@ -188,6 +297,36 @@ export default function AIGenerator() {
     () => sellers.find((seller) => seller.id === selectedSellerId) || null,
     [selectedSellerId, sellers],
   );
+
+  const loadHistory = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      setHistoryError('');
+      const response = await fetchWithTimeout('/api/ai/history', {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 30000);
+      const data = await readJsonResponse<AiHistoryItem[] | { error?: string }>(response, text.historyLoadError);
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(Array.isArray(data) ? text.historyLoadError : data.error || text.historyLoadError);
+      }
+      setHistory(data);
+    } catch (err: any) {
+      setHistoryError(err.name === 'AbortError' ? text.historyLoadError : err.message || text.historyLoadError);
+    }
+  }, [text.historyLoadError]);
+
+  useEffect(() => {
+    if (generatedModelId) void loadHistory();
+  }, [generatedModelId, loadHistory]);
+
+  const handleImageChange = (file: File | null) => {
+    setImageFile(file);
+    setReferenceMeta(null);
+    setReferencePreviewUrl('');
+    setReferenceImageFailed(false);
+  };
 
   const loadSellers = async () => {
     const token = localStorage.getItem('token');
@@ -315,7 +454,7 @@ export default function AIGenerator() {
                 ref={imageInputRef}
                 type="file"
                 accept="image/*"
-                onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                onChange={(event) => handleImageChange(event.target.files?.[0] || null)}
                 disabled={generating}
                 hidden
                 aria-hidden="true"
@@ -332,6 +471,40 @@ export default function AIGenerator() {
                   {text.chooseFile}
                 </button>
                 <span className="min-w-0 truncate text-slate-600">{imageFile?.name || text.noFile}</span>
+              </div>
+              {(referenceMeta || referencePreviewUrl || referenceImageFailed) && (
+                <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  {referenceMeta && (
+                    <div className="mb-3">
+                      <p className="text-xs font-bold uppercase text-emerald-800">{text.selectedExample}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">{referenceMeta.title}</p>
+                      {referenceMeta.category && <p className="mt-0.5 text-xs text-slate-600">{referenceMeta.category}</p>}
+                    </div>
+                  )}
+                  {referencePreviewUrl && !referenceImageFailed ? (
+                    <img
+                      src={referencePreviewUrl}
+                      alt={referenceMeta?.title || text.imageLabel}
+                      onError={() => setReferenceImageFailed(true)}
+                      className="aspect-video w-full rounded-xl border border-emerald-100 bg-white object-contain"
+                    />
+                  ) : null}
+                  {referenceImageFailed && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                      {text.imageFallback}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold text-slate-700">{text.promptLabel}</label>
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  placeholder={text.promptPlaceholder}
+                  disabled={generating}
+                  className="h-32 w-full resize-none rounded-xl border border-stone-300 p-4 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
               </div>
             </div>
           )}
@@ -443,6 +616,44 @@ export default function AIGenerator() {
             {text.tips.map((tip) => (
               <p key={tip}>{tip}</p>
             ))}
+          </div>
+
+          <div className="mt-6 border-t border-stone-200 pt-5">
+            <h2 className="text-lg font-semibold text-slate-950">{text.historyTitle}</h2>
+            {historyError ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                {historyError}
+              </div>
+            ) : history.length === 0 ? (
+              <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-slate-600">{text.historyEmpty}</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {history.slice(0, 8).map((item) => (
+                  <div key={item.id} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-slate-700">
+                        {item.status}
+                      </span>
+                      <span className="text-[11px] font-medium text-slate-500">
+                        {new Date(item.createdAt).toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US')}
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-600">
+                      {item.prompt || item.generationType || item.id}
+                    </p>
+                    {item.status === 'COMPLETED' && (
+                      <button
+                        type="button"
+                        onClick={() => setGeneratedModelId(item.id)}
+                        className="mt-3 w-full rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-stone-100"
+                      >
+                        {text.viewHistory}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
       </div>

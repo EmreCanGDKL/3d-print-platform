@@ -8,6 +8,7 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
+const admin_1 = require("../utils/admin");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
 const registerSchema = zod_1.z.object({
@@ -34,13 +35,14 @@ const passwordSchema = zod_1.z.object({
     newPassword: zod_1.z.string().min(6),
 });
 function toSafeUser(user) {
+    const role = (0, admin_1.getEffectiveRole)(user);
     return {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role,
         companyName: user.companyName || null,
-        displayName: user.role === 'SELLER' ? user.companyName || user.name : user.name,
+        displayName: role === 'SELLER' ? user.companyName || user.name : user.name,
     };
 }
 function createToken(userId) {

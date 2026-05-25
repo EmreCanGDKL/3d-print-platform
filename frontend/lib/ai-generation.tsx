@@ -221,8 +221,11 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
         const formData = new FormData();
         formData.append('type', mode);
 
+        if (prompt?.trim()) {
+          formData.append('prompt', prompt.trim());
+        }
+
         if (mode === 'text') {
-          formData.append('prompt', (prompt || '').trim());
         } else if (imageFile) {
           formData.append('image', imageFile);
         }

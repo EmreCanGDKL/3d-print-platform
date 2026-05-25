@@ -30,13 +30,14 @@ type StoredUser = {
   email: string;
   companyName?: string | null;
   displayName?: string;
-  role: 'USER' | 'SELLER';
+  role: 'USER' | 'SELLER' | 'ADMIN';
 };
 
 const copy = {
   tr: {
     subtitle: '3D baskı pazaryeri',
     catalog: 'Katalog',
+    examples: 'Örnekler',
     aiCreate: 'AI Oluştur',
     messages: 'Mesajlar',
     addProduct: 'Ürün ekle',
@@ -46,6 +47,7 @@ const copy = {
     orders: 'Siparişlerim',
     cart: 'Sepet',
     settings: 'Ayarlar',
+    adminExamples: 'Örnek yönetimi',
     login: 'Giriş',
     register: 'Kayıt ol',
     logout: 'Çıkış',
@@ -61,6 +63,7 @@ const copy = {
   en: {
     subtitle: '3D printing marketplace',
     catalog: 'Catalog',
+    examples: 'Examples',
     aiCreate: 'Create with AI',
     messages: 'Messages',
     addProduct: 'Add product',
@@ -70,6 +73,7 @@ const copy = {
     orders: 'My orders',
     cart: 'Cart',
     settings: 'Settings',
+    adminExamples: 'Example management',
     login: 'Log in',
     register: 'Sign up',
     logout: 'Log out',
@@ -90,6 +94,7 @@ export function Navbar() {
   const text = copy[language];
   const navLinks = [
     { href: '/marketplace', label: text.catalog },
+    { href: '/examples', label: text.examples },
     { href: '/ai-generator', label: text.aiCreate },
   ];
 
@@ -199,7 +204,7 @@ export function Navbar() {
   };
 
   const initials = user?.name?.slice(0, 1).toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-US') || 'U';
-  const roleLabel = user?.role === 'SELLER' ? text.seller : text.customer;
+  const roleLabel = user?.role === 'ADMIN' ? 'Admin' : user?.role === 'SELLER' ? text.seller : text.customer;
   const profileName = user?.role === 'SELLER' ? user.companyName || user.displayName || user.name : user?.name;
 
   return (
@@ -255,6 +260,38 @@ export function Navbar() {
               <Languages className="h-4 w-4" />
               {text.languageLabel}
             </button>
+
+            {user && (
+              <Link
+                href="/messages"
+                onClick={() => setOpen(false)}
+                className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden lg:inline">{text.messages}</span>
+                {unreadMessages > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white">
+                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            {user && (
+              <Link
+                href="/cart"
+                onClick={() => setOpen(false)}
+                className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-stone-100"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                <span className="hidden lg:inline">{text.cart}</span>
+                {cartCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-emerald-700 px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white">
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             <div className="relative">
               {user ? (
@@ -360,6 +397,16 @@ export function Navbar() {
                     >
                       <Box className="h-4 w-4 text-slate-500" />
                       {text.addProduct}
+                    </Link>
+                  )}
+                  {user?.role === 'ADMIN' && (
+                    <Link
+                      href="/admin/examples"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-stone-100"
+                    >
+                      <Settings className="h-4 w-4 text-slate-500" />
+                      {text.adminExamples}
                     </Link>
                   )}
                   {user && (
