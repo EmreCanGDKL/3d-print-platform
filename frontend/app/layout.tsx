@@ -6,6 +6,14 @@ import { AiGenerationProvider } from '@/lib/ai-generation';
 import { LanguageProvider } from '@/lib/language';
 
 export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: '/printforge-mark.svg', type: 'image/svg+xml' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/printforge-mark.svg',
+    apple: '/printforge-mark.svg',
+  },
   title: 'PrintForge | 3D Baskı Pazaryeri',
   description: 'AI destekli 3D model oluşturma, katalog keşfi ve satıcı teklif platformu.',
 };

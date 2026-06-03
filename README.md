@@ -47,6 +47,26 @@ Varsayilan adresler:
 
 Eger `3000` doluysa Next.js otomatik olarak `3002` gibi baska bir porta gecebilir. Bu durumda backend `.env` dosyasinda `FRONTEND_URLS` icine bu adresi de eklemek gerekir.
 
+## Canli Ortam Notu
+
+Netlify sadece frontend'i yayinlar. Backend ayri bir web service olarak calisir. Bu nedenle ortam degiskenleri iki farkli panele yazilir:
+
+Frontend hosting ortam degiskenleri:
+
+```env
+NEXT_PUBLIC_BACKEND_URL="https://backend-domaininiz.com"
+```
+
+Backend hosting ortam degiskenleri:
+
+```env
+FRONTEND_URLS="https://netlify-domaininiz.netlify.app"
+IMAGE_SEARCH_PROVIDER="serpapi"
+SERPAPI_API_KEY="serpapi_key"
+```
+
+Canli ortamda `localhost` adresleri kullanilmaz. `NEXT_PUBLIC_BACKEND_URL` yanlislikla `http://localhost:3001` kalirsa Netlify'daki site kullanicinin kendi bilgisayarindaki backend'e istek atmaya calisir.
+
 ## Backend Ortam Degiskenleri
 
 `backend/.env` icin temel ornek:

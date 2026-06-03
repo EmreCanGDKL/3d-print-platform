@@ -212,9 +212,13 @@ export function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid h-16 grid-cols-[auto_1fr_auto] items-center gap-4">
           <Link href="/" className="flex items-center gap-3" onClick={handleLogoClick}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white">
-              <Box className="h-5 w-5" />
-            </div>
+            <img
+              src="/printforge-mark.svg"
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10 shrink-0 rounded-2xl shadow-sm"
+            />
             <div className="leading-tight">
               <span className="block text-lg font-bold tracking-tight text-slate-950">PrintForge</span>
               <span className="desktop-subtitle text-xs text-slate-500">{text.subtitle}</span>

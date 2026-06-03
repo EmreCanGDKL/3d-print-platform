@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, ImageOff, Loader2, Plus, Search, Sparkles, X } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExampleImageCard, ExampleImageCardData } from '@/components/ExampleImageCard';
 import { fetchWithTimeout, readJsonResponse } from '@/lib/api';
@@ -124,7 +124,13 @@ function SkeletonGrid() {
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-10 text-center shadow-sm">
-      <ImageOff className="mx-auto h-10 w-10 text-slate-400" />
+      <img
+        src="/printforge-mark.svg"
+        alt=""
+        width={72}
+        height={72}
+        className="mx-auto h-16 w-16 rounded-2xl shadow-sm"
+      />
       <h2 className="mt-4 text-xl font-bold text-slate-950">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{text}</p>
     </div>

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2, FileImage, MessageSquare, Sparkles, Type, UsersRound } from 'lucide-react';
+import { AlertCircle, CheckCircle2, MessageSquare, Sparkles, UsersRound } from 'lucide-react';
 import { useAiGeneration } from '@/lib/ai-generation';
 import { useLanguage } from '@/lib/language';
 import { fetchWithTimeout, readJsonResponse } from '@/lib/api';
@@ -77,9 +77,7 @@ const copy = {
     studio: 'AI model stüdyosu',
     title: 'Fikrinizi 3D modele dönüştürün',
     description:
-      'Metinle tarif edin veya referans görsel yükleyin. Üretilen model hazır olduğunda mesaj atacağınız satıcıyı seçebilirsiniz.',
-    textMode: 'Metinden model',
-    imageMode: 'Görselden model',
+      'Referans görsel yükleyin veya örnekler sayfasından bir fikir seçin. Promptu düzenleyip AI model üretimini başlatabilirsiniz.',
     promptLabel: 'Model açıklaması',
     promptPlaceholder:
       'Örn. Kablo düzenleyici kanalları olan, modern, mat yüzeyli masa üstü telefon standı...',
@@ -126,9 +124,7 @@ const copy = {
     studio: 'AI model studio',
     title: 'Turn your idea into a 3D model',
     description:
-      'Describe it with text or upload a reference image. When the model is ready, choose the seller you want to message.',
-    textMode: 'Text to model',
-    imageMode: 'Image to model',
+      'Upload a reference image or choose an idea from examples. Edit the prompt and start AI model generation.',
     promptLabel: 'Model description',
     promptPlaceholder: 'Ex. A modern matte desktop phone stand with cable-management channels...',
     imageLabel: 'Reference image',
@@ -167,7 +163,6 @@ export default function AIGenerator() {
   const router = useRouter();
   const { language } = useLanguage();
   const text = copy[language];
-  const [mode, setMode] = useState<'text' | 'image'>('image');
   const [prompt, setPrompt] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState('');
@@ -219,7 +214,6 @@ export default function AIGenerator() {
 
     if (!examplePrompt && !exampleImageUrl) return;
 
-    setMode('image');
     setPrompt(examplePrompt);
     setReferenceMeta(exampleTitle ? { title: exampleTitle, category: exampleCategory } : null);
     setReferencePreviewUrl(exampleImageUrl);
@@ -359,11 +353,7 @@ export default function AIGenerator() {
     clearResult();
     setValidationError('');
 
-    if (mode === 'text' && prompt.trim().length < 8) {
-      setValidationError(text.minPrompt);
-      return;
-    }
-    if (mode === 'image' && !imageFile) {
+    if (!imageFile) {
       setValidationError(text.imageRequired);
       return;
     }
@@ -375,7 +365,7 @@ export default function AIGenerator() {
     }
 
     await startGeneration({
-      mode,
+      mode: 'image',
       prompt,
       imageFile,
       token,
@@ -418,42 +408,7 @@ export default function AIGenerator() {
             </div>
           )}
 
-          <div className="mb-6 grid grid-cols-2 gap-3 rounded-2xl bg-stone-100 p-2">
-            <button
-              type="button"
-              onClick={() => setMode('text')}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                mode === 'text' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'
-              }`}
-            >
-              <Type className="h-4 w-4" />
-              {text.textMode}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('image')}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                mode === 'image' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'
-              }`}
-            >
-              <FileImage className="h-4 w-4" />
-              {text.imageMode}
-            </button>
-          </div>
-
-          {mode === 'text' ? (
-            <div className="mb-6">
-              <label className="mb-2 block text-sm font-semibold text-slate-700">{text.promptLabel}</label>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder={text.promptPlaceholder}
-                disabled={generating}
-                className="h-40 w-full resize-none rounded-xl border border-stone-300 p-4 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-          ) : (
-            <div className="mb-6">
+          <div className="mb-6">
               <label className="mb-2 block text-sm font-semibold text-slate-700">{text.imageLabel}</label>
               <input
                 ref={imageInputRef}
@@ -511,13 +466,12 @@ export default function AIGenerator() {
                   className="h-32 w-full resize-none rounded-xl border border-stone-300 p-4 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
-            </div>
-          )}
+          </div>
 
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating || (mode === 'text' ? !prompt.trim() : !imageFile)}
+            disabled={generating || !imageFile}
             className="w-full rounded-xl bg-slate-950 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? text.generating : text.create}
