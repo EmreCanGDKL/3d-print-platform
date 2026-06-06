@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ImageOff, Sparkles } from 'lucide-react';
+import { ImageOff, ShieldCheck, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 export type ExampleImageCardData = {
@@ -19,6 +19,8 @@ type ExampleImageCardProps = {
   item: ExampleImageCardData;
   primaryHref: string;
   primaryLabel: string;
+  secondaryHref?: string;
+  secondaryLabel?: string;
   fallbackLabel: string;
 };
 
@@ -37,6 +39,8 @@ export function ExampleImageCard({
   item,
   primaryHref,
   primaryLabel,
+  secondaryHref,
+  secondaryLabel,
   fallbackLabel,
 }: ExampleImageCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -79,13 +83,24 @@ export function ExampleImageCard({
         {item.description && <p className="mt-3 line-clamp-3 text-xs leading-5 text-slate-600">{item.description}</p>}
 
         <div className="mt-auto pt-4">
-          <Link
-            href={primaryHref}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <Sparkles className="h-4 w-4" />
-            {primaryLabel}
-          </Link>
+          <div className="grid gap-2">
+            <Link
+              href={primaryHref}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Sparkles className="h-4 w-4" />
+              {primaryLabel}
+            </Link>
+            {secondaryHref && secondaryLabel && (
+              <Link
+                href={secondaryHref}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-stone-100"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {secondaryLabel}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </article>

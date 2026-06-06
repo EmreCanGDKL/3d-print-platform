@@ -15,6 +15,8 @@ const models_1 = __importDefault(require("./routes/models"));
 const chat_1 = __importDefault(require("./routes/chat"));
 const examples_1 = __importDefault(require("./routes/examples"));
 const images_1 = __importDefault(require("./routes/images"));
+const printQuality_1 = __importDefault(require("./routes/printQuality"));
+const admin_1 = __importDefault(require("./routes/admin"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
@@ -44,6 +46,12 @@ async function addSqliteColumnIfMissing(sql) {
     }
 }
 async function ensureSqliteCompatibility() {
+    await executeSql(`
+    CREATE TABLE IF NOT EXISTS "blocked_emails" (
+      "email" TEXT NOT NULL PRIMARY KEY,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
     const databaseUrl = process.env.DATABASE_URL || '';
     if (!databaseUrl.startsWith('file:'))
         return;
@@ -139,6 +147,8 @@ app.use('/api/models', models_1.default);
 app.use('/api/chat', chat_1.default);
 app.use('/api/examples', examples_1.default);
 app.use('/api/images', images_1.default);
+app.use('/api/print-quality', printQuality_1.default);
+app.use('/api/admin', admin_1.default);
 app.listen(PORT, () => {
     console.log(`Server ${PORT} portunda çalışıyor`);
 });

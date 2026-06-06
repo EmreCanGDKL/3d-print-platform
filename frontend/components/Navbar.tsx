@@ -17,6 +17,7 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
+  ShieldCheck,
   UserRound,
 } from 'lucide-react';
 import { useAiGeneration } from '@/lib/ai-generation';
@@ -39,6 +40,7 @@ const copy = {
     catalog: 'Katalog',
     examples: 'Örnekler',
     aiCreate: 'AI Oluştur',
+    printQuality: 'Kalite Kontrol',
     messages: 'Mesajlar',
     addProduct: 'Ürün ekle',
     myProducts: 'Ürünlerim',
@@ -47,7 +49,7 @@ const copy = {
     orders: 'Siparişlerim',
     cart: 'Sepet',
     settings: 'Ayarlar',
-    adminExamples: 'Örnek yönetimi',
+    adminExamples: 'Admin paneli',
     login: 'Giriş',
     register: 'Kayıt ol',
     logout: 'Çıkış',
@@ -65,6 +67,7 @@ const copy = {
     catalog: 'Catalog',
     examples: 'Examples',
     aiCreate: 'Create with AI',
+    printQuality: 'Quality Check',
     messages: 'Messages',
     addProduct: 'Add product',
     myProducts: 'My products',
@@ -73,7 +76,7 @@ const copy = {
     orders: 'My orders',
     cart: 'Cart',
     settings: 'Settings',
-    adminExamples: 'Example management',
+    adminExamples: 'Admin panel',
     login: 'Log in',
     register: 'Sign up',
     logout: 'Log out',
@@ -96,6 +99,7 @@ export function Navbar() {
     { href: '/marketplace', label: text.catalog },
     { href: '/examples', label: text.examples },
     { href: '/ai-generator', label: text.aiCreate },
+    { href: '/print-quality', label: text.printQuality },
   ];
 
   const [user, setUser] = useState<StoredUser | null>(null);
@@ -365,7 +369,11 @@ export function Navbar() {
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-stone-100 sm:hidden"
                     >
-                      <Box className="h-4 w-4 text-slate-500" />
+                      {link.href === '/print-quality' ? (
+                        <ShieldCheck className="h-4 w-4 text-slate-500" />
+                      ) : (
+                        <Box className="h-4 w-4 text-slate-500" />
+                      )}
                       {link.label}
                     </Link>
                   ))}
@@ -405,7 +413,7 @@ export function Navbar() {
                   )}
                   {user?.role === 'ADMIN' && (
                     <Link
-                      href="/admin/examples"
+                      href="/admin"
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-stone-100"
                     >

@@ -55,11 +55,22 @@ function createToken(userId) {
     };
     return jsonwebtoken_1.default.sign({ userId }, secret, options);
 }
+async function isEmailBlocked(email) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const rows = await prisma.$queryRaw `
+    SELECT email FROM "blocked_emails" WHERE "email" = ${normalizedEmail} LIMIT 1
+  `;
+    return rows.length > 0;
+}
 router.post('/register', async (req, res) => {
     try {
         const { email, password, name, role, companyName } = registerSchema.parse(req.body);
+        const normalizedEmail = email.trim().toLowerCase();
+        if (await isEmailBlocked(normalizedEmail)) {
+            return res.status(403).json({ error: 'Bu e-posta adresi ile kayıt engellenmiştir.' });
+        }
         const existingUser = await prisma.user.findUnique({
-            where: { email },
+            where: { email: normalizedEmail },
         });
         if (existingUser) {
             return res.status(400).json({ error: 'Bu e-posta adresi zaten kayıtlı.' });
@@ -67,7 +78,7 @@ router.post('/register', async (req, res) => {
         const hashedPassword = await bcryptjs_1.default.hash(password, 10);
         const user = await prisma.user.create({
             data: {
-                email,
+                email: normalizedEmail,
                 password: hashedPassword,
                 name,
                 companyName: role === 'SELLER' ? companyName || name : null,
@@ -94,8 +105,12 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = loginSchema.parse(req.body);
+        const normalizedEmail = email.trim().toLowerCase();
+        if (await isEmailBlocked(normalizedEmail)) {
+            return res.status(403).json({ error: 'Bu e-posta adresi engellenmiştir.' });
+        }
         const user = await prisma.user.findUnique({
-            where: { email },
+            where: { email: normalizedEmail },
         });
         if (!user || !(await bcryptjs_1.default.compare(password, user.password))) {
             return res.status(401).json({ error: 'E-posta veya şifre hatalı.' });

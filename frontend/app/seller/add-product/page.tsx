@@ -20,6 +20,9 @@ const copy = {
     nameRequired: 'Ürün adı zorunludur.',
     descriptionRequired: 'Açıklama en az 10 karakter olmalıdır.',
     priceRequired: 'Geçerli bir fiyat girin.',
+    categoryRequired: 'Kategori girin.',
+    customCategory: 'Kendi kategorim',
+    customCategoryPlaceholder: 'Örn. Oyun aksesuarı, yedek parça...',
     imageRequired: 'En az bir ürün görseli yükleyin.',
     saveFailed: 'Ürün kaydedilemedi.',
     saveSuccess: 'Ürün başarıyla kataloğa eklendi. Yönlendiriliyorsunuz...',
@@ -72,6 +75,9 @@ const copy = {
     nameRequired: 'Product name is required.',
     descriptionRequired: 'Description must be at least 10 characters.',
     priceRequired: 'Enter a valid price.',
+    categoryRequired: 'Enter a category.',
+    customCategory: 'Custom category',
+    customCategoryPlaceholder: 'Ex. Gaming accessory, spare part...',
     imageRequired: 'Upload at least one product image.',
     saveFailed: 'Product could not be saved.',
     saveSuccess: 'Product was added to the catalog. Redirecting...',
@@ -164,6 +170,7 @@ export default function AddProductPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('art');
+  const [customCategory, setCustomCategory] = useState('');
   const [price, setPrice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -209,8 +216,10 @@ export default function AddProductPage() {
 
   const validateForm = () => {
     const amount = Number(price);
+    const finalCategory = category === 'custom' ? customCategory.trim() : category;
     if (!name.trim()) return text.nameRequired;
     if (description.trim().length < 10) return text.descriptionRequired;
+    if (!finalCategory) return text.categoryRequired;
     if (!Number.isFinite(amount) || amount <= 0) return text.priceRequired;
     return '';
   };
@@ -308,6 +317,7 @@ export default function AddProductPage() {
 
     try {
       const imageUrls = await uploadSelectedImages();
+      const finalCategory = category === 'custom' ? customCategory.trim() : category;
       const response = await fetchWithTimeout('/api/models', {
         method: 'POST',
         headers: {
@@ -317,7 +327,7 @@ export default function AddProductPage() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim(),
-          category,
+          category: finalCategory,
           price: Number(price),
           imageUrls,
         }),
@@ -411,7 +421,18 @@ export default function AddProductPage() {
                     {item.label}
                   </option>
                 ))}
+                <option value="custom">{text.customCategory}</option>
               </select>
+              {category === 'custom' && (
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={(event) => setCustomCategory(event.target.value.slice(0, 80))}
+                  disabled={isSubmitting}
+                  placeholder={text.customCategoryPlaceholder}
+                  className="mt-3 w-full rounded-xl border border-stone-300 bg-white p-3 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">{text.price}</label>
@@ -526,7 +547,11 @@ export default function AddProductPage() {
           </div>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{text.category}</p>
-            <p className="mt-1 font-semibold text-slate-950">{text.categories.find((item) => item.value === category)?.label}</p>
+            <p className="mt-1 font-semibold text-slate-950">
+              {category === 'custom'
+                ? customCategory.trim() || text.customCategory
+                : text.categories.find((item) => item.value === category)?.label}
+            </p>
           </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-slate-600">{text.previewTip}</p>

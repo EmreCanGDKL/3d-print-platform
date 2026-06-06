@@ -62,12 +62,25 @@ function createToken(userId: string) {
   return jwt.sign({ userId }, secret, options);
 }
 
+async function isEmailBlocked(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const rows = await prisma.$queryRaw<Array<{ email: string }>>`
+    SELECT email FROM "blocked_emails" WHERE "email" = ${normalizedEmail} LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, role, companyName } = registerSchema.parse(req.body);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (await isEmailBlocked(normalizedEmail)) {
+      return res.status(403).json({ error: 'Bu e-posta adresi ile kayıt engellenmiştir.' });
+    }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -78,7 +91,7 @@ router.post('/register', async (req, res) => {
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         name,
         companyName: role === 'SELLER' ? companyName || name : null,
@@ -107,9 +120,14 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (await isEmailBlocked(normalizedEmail)) {
+      return res.status(403).json({ error: 'Bu e-posta adresi engellenmiştir.' });
+    }
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {

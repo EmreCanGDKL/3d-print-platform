@@ -10,6 +10,8 @@ import modelRoutes from './routes/models';
 import chatRoutes from './routes/chat';
 import exampleRoutes from './routes/examples';
 import imageRoutes from './routes/images';
+import printQualityRoutes from './routes/printQuality';
+import adminRoutes from './routes/admin';
 
 dotenv.config();
 
@@ -43,6 +45,13 @@ async function addSqliteColumnIfMissing(sql: string) {
 }
 
 async function ensureSqliteCompatibility() {
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS "blocked_emails" (
+      "email" TEXT NOT NULL PRIMARY KEY,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   const databaseUrl = process.env.DATABASE_URL || '';
   if (!databaseUrl.startsWith('file:')) return;
 
@@ -99,6 +108,7 @@ async function ensureSqliteCompatibility() {
       "updatedAt" DATETIME NOT NULL
     );
   `);
+
 }
 
 app.set('trust proxy', 1);
@@ -147,6 +157,8 @@ app.use('/api/models', modelRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/examples', exampleRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/print-quality', printQualityRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);

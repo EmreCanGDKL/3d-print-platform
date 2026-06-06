@@ -47,6 +47,7 @@ const copy = {
     searchSection: 'Görsel sonuçları',
     searching: 'Görseller aranıyor...',
     convert: 'AI ile 3D’ye dönüştür',
+    qualityCheck: 'Kalite kontrolde incele',
     fallback: 'Görsel yüklenemedi',
     loading: 'Örnekler yükleniyor...',
     emptyTitle: 'Henüz örnek eklenmedi',
@@ -68,6 +69,7 @@ const copy = {
     searchSection: 'Google image results',
     searching: 'Searching images...',
     convert: 'Convert to 3D with AI',
+    qualityCheck: 'Check print quality',
     fallback: 'Image could not load',
     loading: 'Loading examples...',
     emptyTitle: 'No examples yet',
@@ -101,6 +103,18 @@ function buildAiHref(item: { title: string; imageUrl: string; source: string }, 
   });
 
   return `/ai-generator?${params.toString()}`;
+}
+
+function buildQualityHref(item: { title: string; imageUrl: string; source: string }, prompt: string, query: string) {
+  const params = new URLSearchParams({
+    imageUrl: item.imageUrl,
+    prompt,
+    title: item.title,
+    source: item.source,
+    query,
+  });
+
+  return `/print-quality?${params.toString()}`;
 }
 
 function SkeletonGrid() {
@@ -293,6 +307,7 @@ export default function ExamplesPage() {
     const query = debouncedQuery || normalizedInput;
     const prompt = item.description || buildPrompt(item.title, query || item.source);
     const primaryHref = buildAiHref(item, prompt, query);
+    const secondaryHref = buildQualityHref(item, prompt, query);
 
     return (
       <ExampleImageCard
@@ -300,6 +315,8 @@ export default function ExamplesPage() {
         item={item}
         primaryHref={primaryHref}
         primaryLabel={text.convert}
+        secondaryHref={secondaryHref}
+        secondaryLabel={text.qualityCheck}
         fallbackLabel={text.fallback}
       />
     );

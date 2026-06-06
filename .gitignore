@@ -4,3 +4,5 @@ out/
 build/
 .env
 .DS_Store
+datasets/
+scripts/print_quality_ai/.venv/
