@@ -124,6 +124,38 @@ type SelectedImage = {
   previewUrl: string;
 };
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      const maxSize = 1200;
+      const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || maxSize, image.naturalHeight || maxSize));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || maxSize) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || maxSize) * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image could not be prepared.'));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Image could not be prepared.'));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
 export default function AddProductPage() {
   const router = useRouter();
   const { language } = useLanguage();
@@ -231,24 +263,7 @@ export default function AddProductPage() {
       throw new Error(text.imageRequired);
     }
 
-    const uploadToBackend = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error(text.serverFailed);
-
-      const formData = new FormData();
-      orderedSelectedImages.forEach((image) => formData.append('images', image.file));
-
-      const response = await fetchWithTimeout('/api/models/upload-image', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      }, 60000);
-      const data = await readJsonResponse<{ urls?: string[]; error?: string }>(response, text.uploadFailed);
-      if (!response.ok || !data.urls?.length) {
-        throw new Error(data.error || text.uploadFailed);
-      }
-      return data.urls;
-    };
+    const useEmbeddedImages = async () => Promise.all(orderedSelectedImages.map((image) => fileToDataUrl(image.file)));
 
     setIsUploading(true);
     try {
@@ -259,20 +274,10 @@ export default function AddProductPage() {
       if (urls.length === 0) throw new Error(text.uploadNoUrl);
       setUploadedImageUrls(urls);
       return urls;
-    } catch (uploadError: any) {
-      const message = uploadError?.message || text.uploadFailed;
-      const normalizedMessage = message.toLowerCase();
-      const tokenConfigIssue =
-        normalizedMessage.includes('invalid token') ||
-        normalizedMessage.includes('missing token') ||
-        normalizedMessage.includes('uploadthing_token');
-      try {
-        const urls = await uploadToBackend();
-        setUploadedImageUrls(urls);
-        return urls;
-      } catch (fallbackError: any) {
-        throw new Error(tokenConfigIssue ? text.uploadTokenInvalid : `${text.uploadFailed}: ${fallbackError.message || message}`);
-      }
+    } catch {
+      const urls = await useEmbeddedImages();
+      setUploadedImageUrls(urls);
+      return urls;
     } finally {
       setIsUploading(false);
     }

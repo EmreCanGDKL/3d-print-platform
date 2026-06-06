@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
   BadgeCheck,
@@ -181,6 +181,7 @@ const copy = {
 
 export default function MarketplaceCatalog({ models }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const text = copy[language];
   const locale = language === 'tr' ? 'tr-TR' : 'en-US';
@@ -196,6 +197,13 @@ export default function MarketplaceCatalog({ models }: Props) {
   useEffect(() => {
     setCatalogModels(models);
   }, [models]);
+
+  useEffect(() => {
+    const requestedModelId = searchParams.get('modelId');
+    if (requestedModelId && models.some((model) => model.id === requestedModelId)) {
+      setDetailModelId(requestedModelId);
+    }
+  }, [models, searchParams]);
 
   useEffect(() => {
     const raw = localStorage.getItem('user');
@@ -1034,13 +1042,16 @@ function ProductMedia({ model }: { model: CatalogModel }) {
   const { language } = useLanguage();
   const text = copy[language];
   const images = model.imageUrls?.filter(Boolean) ?? [];
+  const primaryImage = images[0] || '';
+  const [imageFailed, setImageFailed] = useState(false);
 
-  if (images.length > 0) {
+  if (images.length > 0 && !imageFailed) {
     return (
       <div className="h-full w-full">
         <img
           src={images[0]}
           alt={model.name}
+          onError={() => setImageFailed(true)}
           className="h-full w-full object-cover"
         />
         {images.length > 1 ? (
@@ -1053,7 +1064,12 @@ function ProductMedia({ model }: { model: CatalogModel }) {
     );
   }
 
-  if (model.modelUrl) {
+  const canUseModelPreview =
+    model.modelUrl &&
+    model.modelUrl !== primaryImage &&
+    /\.(glb|gltf|stl)(\?|$)/i.test(model.modelUrl);
+
+  if (canUseModelPreview) {
     return <ModelViewer src={model.modelUrl} className="h-full w-full" />;
   }
 

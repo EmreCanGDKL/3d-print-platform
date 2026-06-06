@@ -5,6 +5,7 @@ import path from 'path';
 import multer from 'multer';
 import { z } from 'zod';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { aiService } from '../services/aiService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -17,12 +18,23 @@ const productUpload = multer({
   },
 });
 
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      /^https?:\/\//i.test(value) ||
+      value.startsWith('/uploads/') ||
+      /^data:image\/(png|jpe?g|webp);base64,/i.test(value),
+    'Gecerli bir gorsel baglantisi gerekli.',
+  );
+
 const productSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(1200).optional().default(''),
   category: z.string().trim().min(1).max(80),
   price: z.coerce.number().int().positive(),
-  imageUrls: z.array(z.string().trim().url()).min(1).max(5),
+  imageUrls: z.array(imageUrlSchema).min(1).max(5),
 });
 
 const productUpdateSchema = productSchema.partial().extend({
@@ -570,7 +582,22 @@ router.get('/file/:modelId', authenticateToken, async (req: AuthRequest, res) =>
 
     const filePath = path.resolve(uploadsDir, storageKey);
 
-    if (!filePath.startsWith(uploadsDir + path.sep) || !fs.existsSync(filePath)) {
+    if (!filePath.startsWith(uploadsDir + path.sep)) {
+      return res.status(404).json({ error: 'Model dosyası bulunamadı' });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      if (model.taskId) {
+        const status = await aiService.checkTaskStatus(model.taskId);
+        if (status.status === 'success' && status.output?.model) {
+          await prisma.model.update({
+            where: { id: model.id },
+            data: { originalStorageKey: status.output.model },
+          });
+          return res.redirect(status.output.model);
+        }
+      }
+
       return res.status(404).json({ error: 'Model dosyası bulunamadı' });
     }
 

@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Send, Tag } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Box, ExternalLink, Send, Tag } from 'lucide-react';
 import { useLanguage } from '@/lib/language';
 
 interface Message {
@@ -22,6 +23,13 @@ interface Conversation {
   modelId: string;
   modelName: string | null;
   modelType: string;
+  model?: {
+    id: string;
+    name: string | null;
+    type: string;
+    viewerDataKey?: string | null;
+    category?: string | null;
+  };
   participant: {
     id: string;
     name: string;
@@ -53,6 +61,10 @@ const copy = {
     quotePlaceholder: 'Örn. 850',
     messagePlaceholder: 'Mesajınızı yazın...',
     send: 'Gönder',
+    aiModel: 'AI ile üretilmiş 3D model',
+    catalogModel: 'Katalog ürünü',
+    openAiModel: '3D modeli görüntüle',
+    openCatalogModel: 'Ürün detayını aç',
   },
   en: {
     loading: 'Preparing chat...',
@@ -70,6 +82,10 @@ const copy = {
     quotePlaceholder: 'Ex. 850',
     messagePlaceholder: 'Write your message...',
     send: 'Send',
+    aiModel: 'AI-generated 3D model',
+    catalogModel: 'Catalog product',
+    openAiModel: 'View 3D model',
+    openCatalogModel: 'Open product details',
   },
 };
 
@@ -215,6 +231,34 @@ export default function Chat() {
     return conversation.modelName || `Model ${conversation.modelId}`;
   }, [conversation, text.fallbackTitle]);
 
+  const modelHref = useMemo(() => {
+    if (!conversation) return '#';
+    const type = (conversation.modelType || conversation.model?.type || '').toUpperCase();
+    if (type === 'AI') {
+      return `/ai-generator?modelId=${encodeURIComponent(conversation.modelId)}`;
+    }
+    return `/marketplace?modelId=${encodeURIComponent(conversation.modelId)}`;
+  }, [conversation]);
+
+  const isAiModel = (conversation?.modelType || conversation?.model?.type || '').toUpperCase() === 'AI';
+
+  const renderMessageContent = (content: string) => {
+    if (!conversation || !title || !content.includes(title)) {
+      return content;
+    }
+
+    const [before, ...rest] = content.split(title);
+    return (
+      <>
+        {before}
+        <Link href={modelHref} className="font-bold underline underline-offset-2">
+          {title}
+        </Link>
+        {rest.join(title)}
+      </>
+    );
+  };
+
   const sendMessage = async () => {
     if (!conversation || !newMessage.trim() || sending) return;
     const token = getToken();
@@ -283,8 +327,35 @@ export default function Chat() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         <div className="border-b border-stone-200 bg-stone-50 px-5 py-4">
-          <h1 className="text-lg font-semibold text-slate-950">{title}</h1>
+          <Link
+            href={modelHref}
+            className="inline-flex items-center gap-2 text-lg font-semibold text-slate-950 transition hover:text-emerald-800"
+          >
+            {title}
+            <ExternalLink className="h-4 w-4" />
+          </Link>
           <p className="mt-1 text-sm text-slate-500">{text.subtitle}</p>
+          {conversation && (
+            <Link
+              href={modelHref}
+              className="mt-4 flex max-w-xl items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white p-4 text-left transition hover:border-emerald-300 hover:bg-emerald-50"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white">
+                  <Box className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-950">{title}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    {isAiModel ? text.aiModel : text.catalogModel}
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-xs font-bold text-emerald-800">
+                {isAiModel ? text.openAiModel : text.openCatalogModel}
+              </span>
+            </Link>
+          )}
         </div>
 
         {error && (
@@ -318,7 +389,7 @@ export default function Chat() {
                         </span>
                       )}
                     </div>
-                    <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+                    <p className="whitespace-pre-wrap text-sm leading-6">{renderMessageContent(message.content)}</p>
                     {message.isQuote && message.quoteAmount ? (
                       <p className="mt-2 text-base font-bold">
                         TL {message.quoteAmount.toLocaleString(language === 'tr' ? 'tr-TR' : 'en-US')}

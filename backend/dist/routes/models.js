@@ -10,6 +10,7 @@ const path_1 = __importDefault(require("path"));
 const multer_1 = __importDefault(require("multer"));
 const zod_1 = require("zod");
 const auth_1 = require("../middleware/auth");
+const aiService_1 = require("../services/aiService");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
 const uploadsDir = path_1.default.resolve(__dirname, '../../uploads');
@@ -20,12 +21,18 @@ const productUpload = (0, multer_1.default)({
         cb(null, file.mimetype.startsWith('image/'));
     },
 });
+const imageUrlSchema = zod_1.z
+    .string()
+    .trim()
+    .refine((value) => /^https?:\/\//i.test(value) ||
+    value.startsWith('/uploads/') ||
+    /^data:image\/(png|jpe?g|webp);base64,/i.test(value), 'Gecerli bir gorsel baglantisi gerekli.');
 const productSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(120),
     description: zod_1.z.string().trim().max(1200).optional().default(''),
     category: zod_1.z.string().trim().min(1).max(80),
     price: zod_1.z.coerce.number().int().positive(),
-    imageUrls: zod_1.z.array(zod_1.z.string().trim().url()).min(1).max(5),
+    imageUrls: zod_1.z.array(imageUrlSchema).min(1).max(5),
 });
 const productUpdateSchema = productSchema.partial().extend({
     imageUrls: zod_1.z.array(zod_1.z.string().trim().url()).min(1).max(5).optional(),
@@ -504,7 +511,20 @@ router.get('/file/:modelId', auth_1.authenticateToken, async (req, res) => {
             return res.redirect(storageKey);
         }
         const filePath = path_1.default.resolve(uploadsDir, storageKey);
-        if (!filePath.startsWith(uploadsDir + path_1.default.sep) || !fs_1.default.existsSync(filePath)) {
+        if (!filePath.startsWith(uploadsDir + path_1.default.sep)) {
+            return res.status(404).json({ error: 'Model dosyası bulunamadı' });
+        }
+        if (!fs_1.default.existsSync(filePath)) {
+            if (model.taskId) {
+                const status = await aiService_1.aiService.checkTaskStatus(model.taskId);
+                if (status.status === 'success' && status.output?.model) {
+                    await prisma.model.update({
+                        where: { id: model.id },
+                        data: { originalStorageKey: status.output.model },
+                    });
+                    return res.redirect(status.output.model);
+                }
+            }
             return res.status(404).json({ error: 'Model dosyası bulunamadı' });
         }
         const extension = path_1.default.extname(filePath).toLowerCase();

@@ -216,12 +216,16 @@ export default function AIGenerator() {
         ? `Bu referans görsele benzer, 3D baskıya uygun, temiz yüzeyli, STL/3MF üretimine uygun bir 3D model oluştur: ${exampleTitle}. Arama konusu: ${exampleQuery || exampleCategory}.`
         : '');
     const exampleImageUrl = params.get('imageUrl') || '';
+    const examplePreviewUrl =
+      exampleImageUrl && !exampleImageUrl.startsWith('/')
+        ? `/api/examples/proxy-image?url=${encodeURIComponent(exampleImageUrl)}`
+        : exampleImageUrl;
 
     if (!examplePrompt && !exampleImageUrl) return;
 
     setPrompt(examplePrompt);
     setReferenceMeta(exampleTitle ? { title: exampleTitle, category: exampleCategory } : null);
-    setReferencePreviewUrl(exampleImageUrl);
+    setReferencePreviewUrl(examplePreviewUrl);
     setReferenceSourceUrl(exampleImageUrl);
     setReferenceImageFailed(false);
 
@@ -231,10 +235,7 @@ export default function AIGenerator() {
 
     const loadExampleImage = async () => {
       try {
-        const sourceUrl = exampleImageUrl.startsWith('/')
-          ? exampleImageUrl
-          : `/api/examples/proxy-image?url=${encodeURIComponent(exampleImageUrl)}`;
-        const response = await fetchWithTimeout(sourceUrl, {}, 30000);
+        const response = await fetchWithTimeout(examplePreviewUrl, {}, 30000);
         if (!response.ok) throw new Error('Reference image could not be loaded.');
         const blob = await response.blob();
         const fileName = `${(exampleTitle || 'example-reference').toLowerCase().replace(/[^a-z0-9]+/gi, '-')}.png`;
@@ -302,7 +303,8 @@ export default function AIGenerator() {
         objectUrl = URL.createObjectURL(blob);
         const responseFormat = (response.headers.get('x-model-format') || '').toLowerCase();
         const contentType = (response.headers.get('content-type') || '').toLowerCase();
-        const nextFormat = responseFormat === 'stl' || contentType.includes('stl') ? 'stl' : 'gltf';
+        const responseUrl = response.url.toLowerCase().split('?')[0];
+        const nextFormat = responseFormat === 'stl' || contentType.includes('stl') || responseUrl.endsWith('.stl') ? 'stl' : 'gltf';
 
         if (!cancelled) {
           setModelPreviewFormat(nextFormat);
