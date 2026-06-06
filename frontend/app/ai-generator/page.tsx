@@ -483,7 +483,13 @@ export default function AIGenerator() {
                     <img
                       src={referencePreviewUrl}
                       alt={referenceMeta?.title || text.imageLabel}
-                      onError={() => setReferenceImageFailed(true)}
+                      onError={() => {
+                        if (referencePreviewUrl.startsWith('/api/examples/proxy-image') && referenceSourceUrl) {
+                          setReferencePreviewUrl(referenceSourceUrl);
+                          return;
+                        }
+                        setReferenceImageFailed(true);
+                      }}
                       className="aspect-video w-full rounded-xl border border-emerald-100 bg-white object-contain"
                     />
                   ) : null}

@@ -100,7 +100,7 @@ function buildAiHref(item: { title: string; imageUrl: string; source: string }, 
     query,
   });
 
-  return `/ai-create?${params.toString()}`;
+  return `/ai-generator?${params.toString()}`;
 }
 
 function SkeletonGrid() {
