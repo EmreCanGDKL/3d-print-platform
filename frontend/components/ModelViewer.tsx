@@ -1,15 +1,16 @@
 'use client';
 
 import { Component, Suspense, useEffect, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useLoader } from '@react-three/fiber';
 import { Bounds, Center, Environment, OrbitControls, useGLTF } from '@react-three/drei';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { Box } from 'lucide-react';
 import * as THREE from 'three';
 
 interface ModelViewerProps {
   src: string;
   className?: string;
-  format?: 'gltf' | 'secure';
+  format?: 'gltf' | 'secure' | 'stl';
 }
 
 type SecureGeometryData = {
@@ -122,6 +123,32 @@ function SecureGeometryModel({ src }: { src: string }) {
   );
 }
 
+function STLModel({ src }: { src: string }) {
+  const loadedGeometry = useLoader(STLLoader, src);
+  const geometry = useMemo(() => {
+    const nextGeometry = loadedGeometry.clone();
+    nextGeometry.computeVertexNormals();
+    nextGeometry.center();
+    return nextGeometry;
+  }, [loadedGeometry]);
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
+  return (
+    <Bounds fit clip observe margin={1.25}>
+      <Center>
+        <mesh geometry={geometry}>
+          <meshStandardMaterial color="#d1d5db" roughness={0.55} metalness={0.08} />
+        </mesh>
+      </Center>
+    </Bounds>
+  );
+}
+
 export default function ModelViewer({ src, className, format = 'gltf' }: ModelViewerProps) {
   return (
     <div className={className ?? 'relative h-full w-full'}>
@@ -130,7 +157,13 @@ export default function ModelViewer({ src, className, format = 'gltf' }: ModelVi
           <Canvas camera={{ position: [2.4, 1.8, 2.4], fov: 42 }} dpr={[1, 2]} shadows>
             <ambientLight intensity={0.8} />
             <directionalLight position={[3, 4, 5]} intensity={1.8} castShadow />
-            {format === 'secure' ? <SecureGeometryModel src={src} /> : <GLTFModel src={src} />}
+            {format === 'secure' ? (
+              <SecureGeometryModel src={src} />
+            ) : format === 'stl' ? (
+              <STLModel src={src} />
+            ) : (
+              <GLTFModel src={src} />
+            )}
             <Environment preset="city" />
             <OrbitControls makeDefault enablePan={false} minDistance={0.8} maxDistance={8} />
           </Canvas>

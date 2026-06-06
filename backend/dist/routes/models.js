@@ -508,11 +508,18 @@ router.get('/file/:modelId', auth_1.authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Model dosyası bulunamadı' });
         }
         const extension = path_1.default.extname(filePath).toLowerCase();
+        res.setHeader('X-Model-Format', extension.replace('.', '') || 'bin');
         if (extension === '.glb') {
             res.type('model/gltf-binary');
         }
         else if (extension === '.gltf') {
             res.type('model/gltf+json');
+        }
+        else if (extension === '.stl') {
+            res.type('model/stl');
+        }
+        else if (extension === '.json') {
+            res.type('application/json');
         }
         else {
             res.type('application/octet-stream');

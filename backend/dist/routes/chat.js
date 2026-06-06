@@ -37,6 +37,13 @@ function getConversationPrice(conversation) {
 function getUserDisplayName(user) {
     return user.role === 'SELLER' ? user.companyName || user.name : user.name;
 }
+function isAdminLikeSeller(seller) {
+    const searchableValues = [seller.name, seller.companyName, seller.email.split('@')[0]]
+        .filter((value) => Boolean(value))
+        .map((value) => value.trim().toLocaleLowerCase('tr-TR'));
+    return ((0, admin_1.isAdminUser)({ email: seller.email, role: 'SELLER' }) ||
+        searchableValues.some((value) => value === 'admin' || value.includes('admin')));
+}
 async function toConversationSummary(conversation, userId) {
     const isBuyer = conversation.buyerId === userId;
     const participant = isBuyer ? conversation.seller : conversation.buyer;
@@ -107,7 +114,7 @@ router.get('/sellers', auth_1.authenticateToken, async (req, res) => {
             },
             orderBy: { name: 'asc' },
         });
-        const visibleSellers = sellers.filter((seller) => !(0, admin_1.isAdminUser)({ email: seller.email, role: 'SELLER' }));
+        const visibleSellers = sellers.filter((seller) => !isAdminLikeSeller(seller));
         res.json({
             items: visibleSellers.map((seller) => ({
                 id: seller.id,

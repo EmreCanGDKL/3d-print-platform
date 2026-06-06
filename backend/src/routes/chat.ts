@@ -44,6 +44,17 @@ function getUserDisplayName(user: { name: string; role?: string | null; companyN
   return user.role === 'SELLER' ? user.companyName || user.name : user.name;
 }
 
+function isAdminLikeSeller(seller: { name: string; companyName?: string | null; email: string }) {
+  const searchableValues = [seller.name, seller.companyName, seller.email.split('@')[0]]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.trim().toLocaleLowerCase('tr-TR'));
+
+  return (
+    isAdminUser({ email: seller.email, role: 'SELLER' }) ||
+    searchableValues.some((value) => value === 'admin' || value.includes('admin'))
+  );
+}
+
 async function toConversationSummary(conversation: any, userId: string) {
   const isBuyer = conversation.buyerId === userId;
   const participant = isBuyer ? conversation.seller : conversation.buyer;
@@ -118,7 +129,7 @@ router.get('/sellers', authenticateToken, async (req: AuthRequest, res) => {
       orderBy: { name: 'asc' },
     });
 
-    const visibleSellers = sellers.filter((seller) => !isAdminUser({ email: seller.email, role: 'SELLER' }));
+    const visibleSellers = sellers.filter((seller) => !isAdminLikeSeller(seller));
 
     res.json({
       items: visibleSellers.map((seller) => ({

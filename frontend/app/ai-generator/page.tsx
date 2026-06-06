@@ -92,6 +92,7 @@ const copy = {
     create: 'Model oluştur',
     readyTitle: 'Model hazır',
     previewLoading: '3D önizleme hazırlanıyor...',
+    previewUnavailable: '3D önizleme açılamadı. Model dosyası hazır, ancak tarayıcıda gösterilemiyor.',
     sellerTitle: 'Mesaj göndereceğiniz satıcıyı seçin',
     sellerDescription: 'AI modeliniz için teklif almak istediğiniz satıcıyı seçip ayrı mesaj penceresini açın.',
     noSellers: 'Henüz mesaj gönderebileceğiniz satıcı bulunamadı.',
@@ -138,6 +139,7 @@ const copy = {
     create: 'Create model',
     readyTitle: 'Model ready',
     previewLoading: 'Preparing 3D preview...',
+    previewUnavailable: '3D preview could not be opened. The model file is ready, but cannot be shown in the browser.',
     sellerTitle: 'Choose the seller to message',
     sellerDescription: 'Select a seller for a quote and open a separate message window for your AI model.',
     noSellers: 'There are no sellers you can message yet.',
@@ -171,7 +173,8 @@ export default function AIGenerator() {
   const [referenceImageFailed, setReferenceImageFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [modelPreviewUrl, setModelPreviewUrl] = useState<string | null>(null);
-  const [modelPreviewFormat, setModelPreviewFormat] = useState<'gltf' | 'secure'>('gltf');
+  const [modelPreviewFormat, setModelPreviewFormat] = useState<'gltf' | 'secure' | 'stl'>('gltf');
+  const [modelPreviewError, setModelPreviewError] = useState('');
   const [validationError, setValidationError] = useState('');
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSellerId, setSelectedSellerId] = useState('');
@@ -242,7 +245,7 @@ export default function AIGenerator() {
       } catch {
         if (!cancelled) {
           setImageFile(null);
-          setReferenceImageFailed(true);
+          setReferenceImageFailed(false);
         }
       }
     };
@@ -258,6 +261,7 @@ export default function AIGenerator() {
     if (!generatedModelId) {
       setModelPreviewUrl(null);
       setModelPreviewFormat('gltf');
+      setModelPreviewError('');
       return;
     }
 
@@ -269,6 +273,7 @@ export default function AIGenerator() {
       if (!token) return;
 
       try {
+        setModelPreviewError('');
         const secureResponse = await fetchWithTimeout(`/api/models/secure-view/${generatedModelId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 30000);
@@ -288,18 +293,25 @@ export default function AIGenerator() {
           headers: { Authorization: `Bearer ${token}` },
         }, 30000);
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) setModelPreviewError(text.previewUnavailable);
+          return;
+        }
 
         const blob = await response.blob();
         objectUrl = URL.createObjectURL(blob);
+        const responseFormat = (response.headers.get('x-model-format') || '').toLowerCase();
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        const nextFormat = responseFormat === 'stl' || contentType.includes('stl') ? 'stl' : 'gltf';
 
         if (!cancelled) {
-          setModelPreviewFormat('gltf');
+          setModelPreviewFormat(nextFormat);
           setModelPreviewUrl(objectUrl);
         }
       } catch {
         if (!cancelled) {
           setModelPreviewUrl(null);
+          setModelPreviewError(text.previewUnavailable);
         }
       }
     };
@@ -310,7 +322,7 @@ export default function AIGenerator() {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [generatedModelId]);
+  }, [generatedModelId, text.previewUnavailable]);
 
   const selectedSeller = useMemo(
     () => sellers.find((seller) => seller.id === selectedSellerId) || null,
@@ -452,7 +464,9 @@ export default function AIGenerator() {
                 >
                   {text.chooseFile}
                 </button>
-                <span className="min-w-0 truncate text-slate-600">{imageFile?.name || text.noFile}</span>
+                <span className="min-w-0 truncate text-slate-600">
+                  {imageFile?.name || (referenceSourceUrl ? referenceMeta?.title || text.selectedExample : text.noFile)}
+                </span>
               </div>
               {(referenceMeta || referencePreviewUrl || referenceImageFailed) && (
                 <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -521,6 +535,10 @@ export default function AIGenerator() {
               <div className="mt-5 h-72 overflow-hidden rounded-xl border border-emerald-200 bg-white">
                 {modelPreviewUrl ? (
                   <ModelViewer src={modelPreviewUrl} format={modelPreviewFormat} className="h-full w-full" />
+                ) : modelPreviewError ? (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-medium text-amber-800">
+                    {modelPreviewError}
+                  </div>
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm font-medium text-emerald-800">
                     {text.previewLoading}
@@ -567,7 +585,9 @@ export default function AIGenerator() {
                             <span className="font-semibold">{seller.name}</span>
                             {active && <span className="text-xs font-bold text-emerald-700">{text.selected}</span>}
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">{seller.companyName || seller.name}</p>
+                          {seller.companyName && seller.companyName !== seller.name && (
+                            <p className="mt-1 text-xs text-slate-500">{seller.companyName}</p>
+                          )}
                           <p className="mt-3 text-xs font-semibold text-slate-600">
                             {seller.activeProductCount} {text.products}
                           </p>
