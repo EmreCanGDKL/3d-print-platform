@@ -47,7 +47,7 @@ const copy = {
     removeImage: 'Kaldır',
     uploadNoUrl: 'Yükleme tamamlandı ancak görsel bağlantısı alınamadı.',
     uploadFailed: 'Görsel yüklenemedi',
-    uploadTokenInvalid: 'Görsel yükleme servisi yapılandırılmamış. frontend/.env.local içindeki UPLOADTHING_TOKEN alanına UploadThing token ekleyin.',
+    uploadTokenInvalid: 'Görsel yükleme servisi yapılandırılmamış. UPLOADTHING_TOKEN değerini frontend/.env.local dosyasına ve canlıda Netlify Environment Variables alanına ekleyip uygulamayı yeniden başlatın.',
     uploadLabel: 'Dosya seçin veya buraya sürükleyin',
     uploadButton: 'Görselleri yükle',
     uploadAllowed: 'En fazla 5 görsel, her biri 8 MB',
@@ -99,7 +99,7 @@ const copy = {
     removeImage: 'Remove',
     uploadNoUrl: 'Upload finished, but no image URL was returned.',
     uploadFailed: 'Image upload failed',
-    uploadTokenInvalid: 'The image upload service is not configured. Add your UploadThing token to UPLOADTHING_TOKEN in frontend/.env.local.',
+    uploadTokenInvalid: 'The image upload service is not configured. Add UPLOADTHING_TOKEN to frontend/.env.local and to Netlify Environment Variables in production, then restart the app.',
     uploadLabel: 'Choose files or drag and drop',
     uploadButton: 'Upload images',
     uploadAllowed: 'Up to 5 images, 8 MB each',
@@ -242,8 +242,12 @@ export default function AddProductPage() {
       return urls;
     } catch (uploadError: any) {
       const message = uploadError?.message || text.uploadFailed;
-      const invalidToken = message.toLowerCase().includes('invalid token');
-      throw new Error(invalidToken ? text.uploadTokenInvalid : `${text.uploadFailed}: ${message}`);
+      const normalizedMessage = message.toLowerCase();
+      const tokenConfigIssue =
+        normalizedMessage.includes('invalid token') ||
+        normalizedMessage.includes('missing token') ||
+        normalizedMessage.includes('uploadthing_token');
+      throw new Error(tokenConfigIssue ? text.uploadTokenInvalid : `${text.uploadFailed}: ${message}`);
     } finally {
       setIsUploading(false);
     }
