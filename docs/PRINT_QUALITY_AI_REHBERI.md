@@ -99,6 +99,32 @@ PRINT_QUALITY_MODEL_URL="http://localhost:5055/predict"
 
 Sonra backend'i yeniden başlat. `/print-quality` ekranındaki sonuç kaynağı `Eğitilmiş model` olarak görünmelidir.
 
+## Render canlı servis ayarı
+
+Python AI servisini Render'da ayrı bir Web Service olarak aç. Root Directory alanını boş bırak.
+
+Build Command:
+
+```bash
+pip install -r scripts/print_quality_ai/requirements.txt
+```
+
+Start Command:
+
+```bash
+python -m uvicorn serve_model:app --host 0.0.0.0 --port $PORT --app-dir scripts/print_quality_ai
+```
+
+Environment Variables:
+
+```env
+PYTHON_VERSION=3.11.9
+PRINT_QUALITY_MODEL_PATH=backend/ml/print_quality/print_quality_model.keras
+PRINT_QUALITY_LABELS_PATH=backend/ml/print_quality/labels.json
+```
+
+`PYTHON_VERSION` özellikle gereklidir. Render varsayılan olarak daha yeni Python sürümü seçerse Pillow veya TensorFlow kurulumu hata verebilir.
+
 ## Bitirme projesinde anlatılabilecek nokta
 
 Bu özellik hazır 3D üretim servisinden farklıdır. Burada model, FDM baskı fotoğraflarıyla eğitilerek hata sınıfı tahmini yapar. Kullanıcıya yalnızca sınıf adı değil, pratik çözüm önerileri de sunulur.
