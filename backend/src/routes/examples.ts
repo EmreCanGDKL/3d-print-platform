@@ -83,7 +83,10 @@ router.get('/proxy-image', async (req, res) => {
       responseType: 'arraybuffer',
       timeout: 20000,
       maxContentLength: 8 * 1024 * 1024,
-      headers: { Accept: 'image/avif,image/webp,image/png,image/jpeg,image/svg+xml,image/*' },
+      headers: {
+        Accept: 'image/avif,image/webp,image/png,image/jpeg,image/svg+xml,image/*',
+        'User-Agent': 'PrintForge/1.0',
+      },
     });
 
     const contentType = String(response.headers['content-type'] || 'image/jpeg');

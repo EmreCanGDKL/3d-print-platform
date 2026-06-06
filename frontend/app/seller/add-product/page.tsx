@@ -236,7 +236,7 @@ export default function AddProductPage() {
       const result = await uploadFiles('productImageUploader', {
         files: orderedSelectedImages.map((image) => image.file),
       });
-      const urls = result.map((file) => file.url).filter(Boolean);
+      const urls = result.map((file: any) => file.url || file.ufsUrl).filter(Boolean);
       if (urls.length === 0) throw new Error(text.uploadNoUrl);
       setUploadedImageUrls(urls);
       return urls;

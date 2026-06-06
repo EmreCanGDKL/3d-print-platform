@@ -166,6 +166,7 @@ export default function AIGenerator() {
   const [prompt, setPrompt] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [referencePreviewUrl, setReferencePreviewUrl] = useState('');
+  const [referenceSourceUrl, setReferenceSourceUrl] = useState('');
   const [referenceMeta, setReferenceMeta] = useState<{ title: string; category: string } | null>(null);
   const [referenceImageFailed, setReferenceImageFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -217,6 +218,7 @@ export default function AIGenerator() {
     setPrompt(examplePrompt);
     setReferenceMeta(exampleTitle ? { title: exampleTitle, category: exampleCategory } : null);
     setReferencePreviewUrl(exampleImageUrl);
+    setReferenceSourceUrl(exampleImageUrl);
     setReferenceImageFailed(false);
 
     if (!exampleImageUrl) return;
@@ -324,6 +326,7 @@ export default function AIGenerator() {
     setImageFile(file);
     setReferenceMeta(null);
     setReferencePreviewUrl('');
+    setReferenceSourceUrl('');
     setReferenceImageFailed(false);
   };
 
@@ -353,7 +356,7 @@ export default function AIGenerator() {
     clearResult();
     setValidationError('');
 
-    if (!imageFile) {
+    if (!imageFile && !referenceSourceUrl) {
       setValidationError(text.imageRequired);
       return;
     }
@@ -368,6 +371,7 @@ export default function AIGenerator() {
       mode: 'image',
       prompt,
       imageFile,
+      imageUrl: referenceSourceUrl,
       token,
     });
   };
@@ -471,7 +475,7 @@ export default function AIGenerator() {
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating || !imageFile}
+            disabled={generating || (!imageFile && !referenceSourceUrl)}
             className="w-full rounded-xl bg-slate-950 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? text.generating : text.create}

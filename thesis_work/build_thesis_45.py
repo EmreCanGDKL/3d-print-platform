@@ -163,15 +163,124 @@ def configure_lists() -> None:
     ]
 
 
-def add_screen_figure(doc: Document, filename: str, caption: str, note: str) -> None:
+def add_screen_figure(doc: Document, filename: str, caption: str, note: str, finding: str) -> None:
     path = SCREENSHOT_DIR / filename
     bt.add_para(doc, note)
-    bt.add_figure(doc, path, caption, 15.2)
+    bt.add_figure(doc, path, caption, 12.8)
     bt.add_para(
         doc,
         "Kaynak: PrintForge uygulamasından alınan ekran görüntüsü, 06.06.2026.",
         "TezSource",
     )
+    bt.add_para(doc, finding)
+
+
+def add_extended_technical_design_compact(doc: Document) -> None:
+    bt.add_section_heading(doc, "2.7. Ayrıntılı Modül Tasarımı")
+    bt.add_para(
+        doc,
+        "Bu alt bölüm, PrintForge uygulamasının yalnızca hangi teknolojilerle geliştirildiğini değil, modüllerin hangi sorumluluklarla ayrıldığını ve bu ayrımın neden tercih edildiğini açıklamak amacıyla hazırlanmıştır. Projede her ekran bağımsız bir sayfa olarak değil, fikir seçimi, AI üretimi, katalog inceleme, satıcıyla iletişim ve sipariş takibi zincirinin bir parçası olarak ele alınmıştır. Bu nedenle modül tasarımında kullanıcı deneyimi, veri modeli, güvenlik ve sürdürülebilirlik kararları birlikte değerlendirilmiştir.",
+    )
+    bt.add_para(
+        doc,
+        "Modül ayrımı yapılırken iki temel ölçüt kullanılmıştır. İlk ölçüt, kullanıcının ekranda tamamladığı görevin sınırıdır; örneğin örnek görsel arama, AI model üretme, katalog ürünü inceleme veya satıcıya mesaj gönderme ayrı kullanıcı niyetleridir. İkinci ölçüt ise backend tarafında yürütülen iş kuralıdır; kimlik doğrulama, görsel arama, model dosyası erişimi ve mesajlaşma gibi işlemler ayrı rota dosyaları ve doğrulama adımlarıyla yönetilmiştir. Bu yaklaşım kodun okunabilirliğini artırmış, hata ayıklama ve geliştirme sürecini daha kontrollü hale getirmiştir.",
+    )
+    sections = [
+        (
+            "2.7.1. Frontend Sayfa Yapısı ve Kullanıcı Deneyimi",
+            [
+                "Frontend katmanında ana sayfa, örnekler, AI üretim stüdyosu, pazaryeri, sepet, favoriler, mesajlar, siparişler, satıcı ürün paneli ve admin örnek yönetimi gibi sayfalar bulunmaktadır. Bu sayfaların her biri farklı kullanıcı rolünün bir görevi tamamlamasına hizmet eder. Kullanıcı için en kritik akış örnek görselden AI üretim sayfasına geçiştir; satıcı için ürün ekleme ve gelen mesaj/sipariş takibidir; admin için ise platformdaki referans içeriklerinin düzenli tutulmasıdır.",
+                "Arayüz tasarımında rol tabanlı görünürlük tercih edilmiştir. Satıcı hesabı ürün ekleme ve ürün yönetme bağlantılarını görürken, normal kullanıcı katalog inceleme, AI üretim ve satıcıya ulaşma akışlarına yönlendirilir. Bu yaklaşım kullanıcıyı ilgisiz kontrollerle karşılaştırmadığı için hata olasılığını azaltır ve arayüzü daha anlaşılır hale getirir.",
+            ],
+        ),
+        (
+            "2.7.2. Örnek Görsel ve Prompt Aktarım Mekanizması",
+            [
+                "Örnekler sayfasında iki farklı referans kaynağı vardır: admin tarafından yönetilen kontrollü örnekler ve internet görsel arama sonuçları. Kontrollü örnekler, dış servis kotası veya arama kalitesi sorunlarında sistemin temel akışını sürdürebilmesini sağlar. İnternet araması ise kullanıcının daha geniş fikir havuzuna ulaşmasına yardımcı olur.",
+                "Kullanıcı bir görsel kartını seçtiğinde yalnızca görsel URL'si aktarılmaz; başlık, kaynak, arama kelimesi ve oluşturulan prompt da query parametreleriyle AI üretim sayfasına taşınır. Bu karar, kullanıcının boş bir prompt alanıyla karşılaşmasını önler ve referans görselin üretim bağlamını korur.",
+            ],
+        ),
+        (
+            "2.7.3. AI Üretim Görevi ve Durum İzleme",
+            [
+                "AI üretim servisleri genellikle anlık sonuç döndürmek yerine görev tabanlı çalışır. Bu nedenle PrintForge, model üretimini tek istek-tek cevap şeklinde değil, görev başlatma ve görev durumunu izleme şeklinde tasarlamıştır. Backend üretim isteğini aldıktan sonra harici servisten taskId alır ve bunu Model kaydıyla ilişkilendirir.",
+                "Frontend tarafındaki üretim durumu yönetimi, aktif üretim görevini kullanıcının oturum deneyimi içinde görünür tutar. Bu sayede kullanıcı sayfadan ayrılsa veya katalogda gezinmeye devam etse bile üretim görevi tamamen unutulmaz. Bu yaklaşım özellikle 3D model üretiminin saniyeler değil dakikalar sürebileceği durumlarda önemlidir.",
+            ],
+        ),
+        (
+            "2.7.4. Backend Doğrulama ve Hata Yönetimi",
+            [
+                "Backend katmanında gelen isteklerin biçimsel doğruluğu Zod şemalarıyla denetlenmiştir. Kayıt, giriş, profil güncelleme, ürün ekleme, yorum, soru, cevap, mesaj, sipariş ve görsel arama isteklerinin her biri beklenen tip, uzunluk ve zorunlu alanlara göre kontrol edilir. Bu yaklaşım hatalı verinin veritabanına ulaşmasını engeller.",
+                "Hata yönetiminde kullanıcıya teknik ayrıntı yerine anlaşılır mesaj döndürme yaklaşımı kullanılmıştır. Görsel arama kotası, geçersiz API anahtarı, üretim servisinin yanıt vermemesi veya dosya formatı uyuşmazlığı gibi durumlar ayrı ayrı ele alınmıştır. Bu tasarım sistemin hata anında sessiz kalmasını önler.",
+            ],
+        ),
+        (
+            "2.7.5. Model Dosyası ve 3D Önizleme Tasarımı",
+            [
+                "AI üretim görevi başarıyla tamamlandığında backend model dosyasını indirir ve dosya türünü kontrol eder. GLB formatındaki modeller doğrudan önizlenebilir dosya olarak saklanırken, STL formatındaki modeller için güvenli önizleme verisi üretilebilir. Bu ayrım, farklı servislerden gelen çıktı formatlarının aynı uygulamada yönetilebilmesi için gereklidir.",
+                "3D önizleme bileşeni Three.js ekosistemi üzerine kurulmuştur. ModelViewer bileşeni modeli yükler, merkezler, kamera sınırlarını ayarlar ve kullanıcıya döndürme/inceleme olanağı verir. Model dosyalarına erişim ise güvenli uç nokta üzerinden yapılır; kullanıcı yalnızca kendi modeline veya tarafı olduğu konuşmaya bağlı modele erişebilir.",
+            ],
+        ),
+        (
+            "2.7.6. Pazaryeri ve Satıcı Ürün Yönetimi",
+            [
+                "Pazaryeri modülü, AI üretimden bağımsız olarak çalışan hazır ürün katalogunu temsil eder. Satıcı; ürün adı, açıklama, kategori, fiyat ve görseller ile katalog ürünü oluşturur. Kullanıcılar bu ürünleri arayabilir, kategori ve maksimum fiyat filtreleriyle daraltabilir, ürün görsellerini inceleyebilir ve satıcıya mesaj gönderebilir.",
+                "Ürün yönetiminde pasif hale getirme yaklaşımı tercih edilmiştir. Satıcı bir ürünü kaldırdığında kayıt tamamen yok edilmek yerine görünürlükten çıkarılabilir. Bu yaklaşım, ileride sipariş geçmişi, konuşma kayıtları ve raporlama ihtiyaçları için veri bütünlüğünün korunmasına yardımcı olur.",
+            ],
+        ),
+        (
+            "2.7.7. Mesajlaşma ve Sipariş Durum Yaşam Döngüsü",
+            [
+                "Mesajlaşma modülü kullanıcı ile satıcı arasında ürün veya AI modeli bağlamında konuşma oluşturur. Katalog ürünleri için konuşma satıcının ürün sahibi olması üzerinden açılırken, AI modeli için kullanıcı mesaj göndermek istediği satıcıyı seçebilir. Bu fark, hazır ürün alımı ile özel üretim talebi arasındaki iş akışı farkını yansıtır.",
+                "Konuşma kayıtlarında buyerId, sellerId, modelId, modelType ve status alanları bulunur. Status alanı yalnızca mesajlaşma durumunu değil, sipariş yaşam döngüsünü de temsil eder. ORDERED, PREPARING, SHIPPED, COMPLETED ve CANCELLED değerleri alıcı ve satıcı arasında sipariş takibinin izlenebilir bir süreç olarak yürütülmesini sağlar.",
+            ],
+        ),
+        (
+            "2.7.8. Dağıtım, Ortam Değişkenleri ve Sürdürme Yaklaşımı",
+            [
+                "Frontend dağıtımı için Netlify yapılandırması hazırlanmıştır. Netlify yalnızca frontend uygulamasını yayınladığı için backend'in ayrı bir web servisi olarak çalışması gerekir. Bu ayrım README içinde açık biçimde belirtilmiş ve canlı ortamda localhost adreslerinin kullanılmaması gerektiği vurgulanmıştır.",
+                "Backend tarafında DATABASE_URL, JWT_SECRET, FRONTEND_URLS, SERPAPI_API_KEY, TRIPO_API_KEY ve HITEM3D anahtarları gibi değerler ortam değişkenleriyle yönetilir. Böylece gizli bilgiler kaynak koduna yazılmaz. Modüler rota yapısı ise Auth, AI, models, chat, examples ve images alanlarının ayrı dosyalarda sürdürülebilmesini sağlar.",
+            ],
+        ),
+    ]
+    for heading, paragraphs in sections:
+        bt.add_section_heading(doc, heading)
+        for paragraph in paragraphs:
+            bt.add_para(doc, paragraph)
+
+    bt.add_para(
+        doc,
+        "Ayrıntılı modül tasarımında ortaya çıkan en önemli sonuç, PrintForge'un tek bir servis entegrasyonundan ibaret olmadığıdır. Sistem, harici AI üretimini kullanıcı deneyimi, güvenlik, veri modeli, pazaryeri ve mesajlaşma katmanlarıyla birlikte ele almaktadır. Bu nedenle proje kapsamı, klasik bir katalog uygulaması veya yalnızca görselden model üreten bir arayüzden daha geniştir.",
+    )
+    rows = [
+        ["Katman", "Sorumluluk", "Kontrol noktası"],
+        ["Frontend", "Kullanıcı etkileşimi, yönlendirme, 3D önizleme ve üretim durumu", "Rol tabanlı görünürlük ve anlaşılır durum mesajı"],
+        ["Backend", "Doğrulama, kimlik, iş kuralları ve harici servis çağrıları", "Zod şemaları, JWT doğrulaması ve hata kodları"],
+        ["Veri modeli", "Kullanıcı, model, konuşma, mesaj ve katalog ilişkileri", "Prisma ilişkileri ve indeksler"],
+        ["Dosya yönetimi", "Model dosyaları ve görsel bağlantıları", "Uploads dizini sınırı ve yetki kontrolü"],
+        ["Harici servisler", "Görsel arama, görsel yükleme ve AI üretim", "Timeout, kota ve anahtar hatası yönetimi"],
+    ]
+    bt.add_table(doc, "Tablo 2.5. Ayrıntılı mimari katmanlar ve kontrol noktaları", rows, [3.2, 6.2, 6.1], "Proje kaynak kodu ve modül sorumlulukları esas alınarak hazırlanmıştır.", 9)
+
+    bt.add_section_heading(doc, "2.8. İş Paketleri ve Zaman Yönetimi")
+    bt.add_para(
+        doc,
+        "Bitirme projesi süreci, yalnızca kod yazımı olarak değil; ihtiyaç analizi, mimari kararlar, uygulama geliştirme, entegrasyon, test ve raporlama adımlarını kapsayan bir mühendislik süreci olarak planlanmıştır. Bu nedenle iş paketleri çıktıya göre ayrılmıştır. Her iş paketinin sonunda kontrol edilebilir bir çıktı üretilmesi hedeflenmiştir.",
+    )
+    bt.add_para(
+        doc,
+        "İş paketlerinin sıralı tasarlanması, projenin son aşamada bütünleşik görünmesini sağlamıştır. Örneğin AI üretim sayfası katalog ve mesajlaşma modülleri olmadan yalnızca model oluşturan bir araç olarak kalacaktı. Mesajlaşma ve sipariş modüllerinin eklenmesiyle AI çıktısının gerçek üretim talebine dönüşmesi mümkün hale gelmiştir.",
+    )
+    rows = [
+        ["İş paketi", "Amaç", "Çıktı"],
+        ["İhtiyaç analizi", "3D baskı kullanıcılarının model ve satıcı bulma problemini tanımlamak", "Problem tanımı, araştırma sorusu ve kapsam"],
+        ["Mimari tasarım", "Frontend, backend, veri modeli ve servis ayrımını planlamak", "Sistem mimarisi ve Prisma şeması"],
+        ["Katalog geliştirme", "Satıcı ürünlerini ve kullanıcı katalog deneyimini oluşturmak", "Pazaryeri, ürün kartları, filtreler, detaylar"],
+        ["AI akışı", "Referans görselden üretim görevine geçişi sağlamak", "Örnekler, prompt aktarımı, görev izleme"],
+        ["Mesaj/sipariş", "Satıcı-kullanıcı iletişimini ve sipariş durumlarını izlemek", "Konuşma, mesaj, sipariş ekranları"],
+        ["Test ve raporlama", "Derleme, senaryo ve hata durumlarını doğrulamak", "Derleme çıktıları, test tabloları, tez metni"],
+    ]
+    bt.add_table(doc, "Tablo 2.6. İş paketleri ve çıktıları", rows, [3.2, 6.1, 6.2], "Proje geliştirme süreci esas alınarak hazırlanmıştır.", 9)
 
 
 def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
@@ -215,69 +324,70 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
         "site_home.png",
         "Şekil 3.2. Ana sayfa ve değer önerisi ekranı",
         "Ana sayfa, platformun temel değer önerisini kullanıcıya ilk ekranda sunmaktadır. Sabit fiyatlı katalog ve AI ile model oluşturma seçeneklerinin aynı yüzeyde verilmesi, kullanıcının platformu pazaryeri ve üretim aracı olarak birlikte algılamasını sağlamaktadır.",
+        "Bu ekran, çalışmanın problem tanımında belirtilen dağınık hizmet akışını tek giriş noktasında toplama hedefinin arayüz karşılığını göstermektedir. Kullanıcı katalog veya AI üretim yönlerinden birini seçerek aynı platform içinde ilerleyebilmektedir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "catalog_empty.png",
         "Şekil 3.3. Katalog ve filtreleme ekranı",
         "Katalog ekranı arama, kategori ve maksimum fiyat filtreleriyle yapılandırılmıştır. Henüz ürün yok durumunun boş bırakılmaması, satıcı katılımı ve AI model oluşturma akışına yönlendirme yaparak kullanıcıyı sistem içinde tutmaktadır.",
+        "Katalog yapısı, ileride ürün sayısı arttığında kullanıcıya arama ve sınıflandırma desteği verecek şekilde tasarlanmıştır. Boş durum ekranının yönlendirici olması, kullanılabilirlik açısından önemli bir tasarım kararıdır.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "examples_search.png",
         "Şekil 3.4. Örnek görsel arama ekranı",
         "Örnekler ekranı, kullanıcının üretim fikrine hızlı başlaması için hazır arama önerileri ve görsel sonuçlar sunmaktadır. Görsel arama sonucunun AI üretim sayfasına aktarılabilmesi, fikir aşaması ile model üretimi arasındaki geçişi kısaltmaktadır.",
+        "Bu akış, modelleme bilgisi olmayan kullanıcı için fikir bulma eşiğini düşürmektedir. Kullanıcı boş bir metin alanıyla başlamak yerine görsel referans üzerinden üretim niyetini somutlaştırabilmektedir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "ai_generator.png",
         "Şekil 3.5. AI model üretim ekranı",
         "AI model üretim ekranında referans görsel yükleme, model açıklaması yazma ve önceki üretimleri izleme alanları bulunmaktadır. Bu yapı, kullanıcının yalnızca görsel seçip beklemesini değil, üretim amacını açıklayarak daha kontrollü bir sonuç hedeflemesini sağlamaktadır.",
+        "AI üretim ekranının ayrı bir çalışma alanı olarak tasarlanması, uzun sürebilen üretim görevlerinin katalog ve mesajlaşma ekranlarından bağımsız yönetilmesini sağlar. Böylece sistem yalnızca görsel arama yapan bir sayfa değil, üretim görevi başlatan bir modül haline gelir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "login.png",
         "Şekil 3.6. Giriş ekranı",
         "Giriş ekranı, katalog, teklif ve AI model akışlarına devam etmek için kimlik doğrulama adımını sunmaktadır. Bu ekran, kullanıcıya ait favori, sepet, mesaj ve sipariş bilgilerinin korunabilmesi için rol tabanlı oturum yapısının başlangıç noktasıdır.",
+        "Kimlik doğrulama yapısının sade tutulması, kullanıcıyı temel iş akışından koparmadan hesap güvenliğini sağlamayı hedeflemektedir. Bu ekran aynı zamanda satıcı ve normal kullanıcı rollerinin ayrıştırılacağı oturum bilgisini üretir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "seller_products.png",
         "Şekil 3.7. Satıcı ürün yönetimi ekranı",
         "Satıcı ürün yönetimi ekranı, satıcının katalogda yayınladığı ürünleri tek noktadan görmesini ve yeni ürün ekleme akışına geçmesini sağlar. Bu ekran, platformun yalnızca alıcı tarafı için değil, satıcı operasyonları için de tasarlandığını göstermektedir.",
+        "Satıcı panelinin bulunması, projenin pazaryeri boyutunu güçlendirmektedir. Ürün yönetimi alıcı arayüzünden ayrıldığı için satıcı, katalog içeriğini daha düzenli biçimde kontrol edebilmektedir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "seller_add_product.png",
         "Şekil 3.8. Satıcı ürün ekleme ekranı",
         "Ürün ekleme ekranı ürün adı, açıklama, kategori, fiyat ve görsel yükleme alanlarını içerir. Yayın önizlemesinin aynı sayfada bulunması, satıcının ürünün katalogda nasıl görüneceğini yayın öncesinde değerlendirmesini sağlar.",
+        "Form yapısında fiyatın sabit değer olarak alınması, projenin pazarlık yerine net fiyat ve mesajlaşma akışını önceleyen yaklaşımıyla uyumludur. Görsel yükleme alanı ise ürünün katalogda güven verici biçimde sunulması için gereklidir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "favorites.png",
         "Şekil 3.9. Favoriler ekranı",
         "Favoriler ekranı, kullanıcının ilgilendiği ürünleri daha sonra incelemek üzere saklamasına olanak tanımaktadır. Bu özellik, katalog inceleme davranışını tek oturumluk bir işlem olmaktan çıkarıp kullanıcı hesabına bağlı kalıcı bir deneyime dönüştürmektedir.",
+        "Favoriler modülü, kullanıcı karar verme sürecini destekleyen yardımcı bir bileşendir. Özellikle çok sayıda katalog ürünü olduğunda kullanıcı, satın alma veya mesajlaşma kararını erteleyebilmekte ve ilgilendiği ürünleri kaybetmemektedir.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "messages.png",
         "Şekil 3.10. Mesajlar ekranı",
         "Mesajlar ekranı satıcı ve müşteri konuşmalarını sipariş ekranından ayrı olarak yönetmektedir. Bu ayrım, ürün hakkında bilgi alma, teklif netleştirme ve üretim sürecini konuşma gibi iletişim ihtiyaçlarının düzenli takip edilmesini sağlar.",
+        "Mesajlaşma modülü, AI üretim veya katalog ürünü sonrasında satıcıyla temas kurulmasını sağlayan ana bağlantıdır. Siparişten ayrı tutulması, bilgi alma konuşmaları ile aktif üretim süreçlerinin karışmasını azaltmaktadır.",
     )
-    doc.add_page_break()
     add_screen_figure(
         doc,
         "orders.png",
         "Şekil 3.11. Sipariş takip ekranı",
         "Sipariş takip ekranı, satıcının gelen siparişleri ve sipariş durumu değişikliklerini görmesi için tasarlanmıştır. Mesaj ekranından ayrılan bu yapı, iletişim ile üretim/sipariş takibinin karışmasını azaltır.",
+        "Sipariş ekranı, projenin yalnızca model fikri üretmekle kalmayıp hizmet sürecini takip edebilecek bir pazaryeri altyapısına yöneldiğini göstermektedir. İleride ödeme, kargo ve üretim aşaması bildirimleri bu ekran üzerinden genişletilebilir.",
     )
 
     doc.add_page_break()
@@ -372,7 +482,7 @@ def build(total_pages: int = 50) -> None:
     bt.add_intro(doc)
     bt.add_chapter_one(doc, diagrams)
     bt.add_chapter_two(doc, diagrams)
-    bt.add_extended_technical_design(doc)
+    add_extended_technical_design_compact(doc)
     add_chapter_three(doc, diagrams)
     bt.add_conclusion_refs_appendices(doc)
     bt.enable_update_fields_on_open(doc)

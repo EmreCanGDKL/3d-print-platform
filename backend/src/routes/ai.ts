@@ -15,6 +15,7 @@ const prisma = new PrismaClient();
 const generateSchema = z.object({
   type: z.enum(['text', 'image']),
   prompt: z.string().trim().optional(),
+  imageUrl: z.string().trim().max(2000).optional(),
 });
 
 const upload = multer({
@@ -37,9 +38,54 @@ function bufferIsGLB(buf: Buffer): boolean {
   return buf.length >= 12 && buf.readUInt32LE(0) === 0x46546c67;
 }
 
+function getFrontendBaseUrl() {
+  const firstAllowedFrontend = process.env.FRONTEND_URLS?.split(',')[0]?.trim();
+  return process.env.FRONTEND_URL?.trim() || firstAllowedFrontend || 'http://localhost:3000';
+}
+
+function resolveImageUrl(value?: string) {
+  if (!value) return null;
+  if (value.startsWith('/')) {
+    return new URL(value, getFrontendBaseUrl()).toString();
+  }
+  const url = new URL(value);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Gecerli bir gorsel baglantisi gerekli.');
+  }
+  return url.toString();
+}
+
+async function fetchReferenceImage(imageUrl: string) {
+  const response = await axios.get(imageUrl, {
+    responseType: 'arraybuffer',
+    timeout: 30000,
+    maxContentLength: 8 * 1024 * 1024,
+    headers: {
+      Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*',
+      'User-Agent': 'PrintForge/1.0',
+    },
+  });
+
+  const contentType = String(response.headers['content-type'] || 'image/jpeg').split(';')[0].trim();
+  if (!contentType.startsWith('image/')) {
+    throw new Error('Baglanti bir gorsel dondurmedi.');
+  }
+
+  const pathname = new URL(imageUrl).pathname;
+  const rawFilename = decodeURIComponent(path.basename(pathname) || 'reference-image');
+  const fallbackExt = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+  const filename = /\.[a-z0-9]{2,5}$/i.test(rawFilename) ? rawFilename : `${rawFilename}.${fallbackExt}`;
+
+  return {
+    buffer: Buffer.from(response.data),
+    mimetype: contentType,
+    filename,
+  };
+}
+
 router.post('/generate', authenticateToken, upload.single('image'), async (req: AuthRequest, res) => {
   try {
-    const { type, prompt } = generateSchema.parse(req.body);
+    const { type, prompt, imageUrl } = generateSchema.parse(req.body);
     const userId = req.user!.id;
 
     let result;
@@ -50,10 +96,15 @@ router.post('/generate', authenticateToken, upload.single('image'), async (req: 
       }
       result = await aiService.generateFromText(prompt);
     } else {
-      if (!req.file) {
+      const resolvedImageUrl = resolveImageUrl(imageUrl);
+      if (!req.file && !resolvedImageUrl) {
         return res.status(400).json({ error: 'Görsel gerekli' });
       }
-      result = await aiService.generateFromImage(req.file.buffer, req.file.mimetype, req.file.originalname);
+      const reference = req.file
+        ? { buffer: req.file.buffer, mimetype: req.file.mimetype, filename: req.file.originalname }
+        : await fetchReferenceImage(resolvedImageUrl!);
+
+      result = await aiService.generateFromImage(reference.buffer, reference.mimetype, reference.filename);
     }
 
     const model = await prisma.model.create({

@@ -24,6 +24,22 @@ function hasHitem3dCredentials() {
   return Boolean(HITEM3D_ACCESS_KEY && HITEM3D_SECRET_KEY);
 }
 
+function getProviderErrorMessage(error: any) {
+  const rawMessage =
+    error.response?.data?.msg ||
+    error.response?.data?.message ||
+    error.message ||
+    'Bilinmeyen sağlayıcı hatası.';
+  const message = String(rawMessage);
+  const normalized = message.toLowerCase();
+
+  if (message.includes('余额不足') || normalized.includes('insufficient balance') || normalized.includes('balance')) {
+    return 'AI üretim kredisi/bakiyesi yetersiz. Lütfen Hitem3D hesabınıza kredi yükleyin veya farklı bir API anahtarı kullanın.';
+  }
+
+  return message;
+}
+
 function getTripoAuthHeaders() {
   if (!TRIPO_API_KEY) {
     throw new Error('TRIPO_API_KEY yapılandırılmadı. Lütfen .env dosyanızı kontrol edin.');
@@ -112,7 +128,7 @@ export class AIService {
       return { taskId, status: 'pending' };
     } catch (error: any) {
       console.error('[Tripo] generateFromText başarısız:', error.response?.data || error.message);
-      throw new Error(`3D model üretimi başlatılamadı: ${error.message}`);
+      throw new Error(`3D model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
     }
   }
 
@@ -158,7 +174,7 @@ export class AIService {
         return { taskId, status: 'pending' };
       } catch (error: any) {
         console.error('[Hitem3D] generateFromImage başarısız:', error.response?.data || error.message);
-        throw new Error(`Görselden model üretimi başlatılamadı: ${error.message}`);
+        throw new Error(`Görselden model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
       }
     }
 
@@ -203,7 +219,7 @@ export class AIService {
       return { taskId, status: 'pending' };
     } catch (error: any) {
       console.error('[Tripo] generateFromImage başarısız:', error.response?.data || error.message);
-      throw new Error(`Görselden model üretimi başlatılamadı: ${error.message}`);
+      throw new Error(`Görselden model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
     }
   }
 

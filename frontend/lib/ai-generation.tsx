@@ -30,6 +30,7 @@ type StartGenerationInput = {
   mode: GenerationMode;
   prompt?: string;
   imageFile?: File | null;
+  imageUrl?: string;
   token: string;
 };
 
@@ -206,7 +207,7 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startGeneration = useCallback(
-    async ({ mode, prompt, imageFile, token }: StartGenerationInput) => {
+    async ({ mode, prompt, imageFile, imageUrl, token }: StartGenerationInput) => {
       if (generating) {
         setError(textRef.current.busy);
         return;
@@ -228,6 +229,8 @@ export function AiGenerationProvider({ children }: { children: ReactNode }) {
         if (mode === 'text') {
         } else if (imageFile) {
           formData.append('image', imageFile);
+        } else if (imageUrl) {
+          formData.append('imageUrl', imageUrl);
         }
 
         const response = await fetchWithTimeout(

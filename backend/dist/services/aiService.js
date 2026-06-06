@@ -16,6 +16,18 @@ let hitem3dTokenCache = null;
 function hasHitem3dCredentials() {
     return Boolean(HITEM3D_ACCESS_KEY && HITEM3D_SECRET_KEY);
 }
+function getProviderErrorMessage(error) {
+    const rawMessage = error.response?.data?.msg ||
+        error.response?.data?.message ||
+        error.message ||
+        'Bilinmeyen sağlayıcı hatası.';
+    const message = String(rawMessage);
+    const normalized = message.toLowerCase();
+    if (message.includes('余额不足') || normalized.includes('insufficient balance') || normalized.includes('balance')) {
+        return 'AI üretim kredisi/bakiyesi yetersiz. Lütfen Hitem3D hesabınıza kredi yükleyin veya farklı bir API anahtarı kullanın.';
+    }
+    return message;
+}
 function getTripoAuthHeaders() {
     if (!TRIPO_API_KEY) {
         throw new Error('TRIPO_API_KEY yapılandırılmadı. Lütfen .env dosyanızı kontrol edin.');
@@ -84,7 +96,7 @@ class AIService {
         }
         catch (error) {
             console.error('[Tripo] generateFromText başarısız:', error.response?.data || error.message);
-            throw new Error(`3D model üretimi başlatılamadı: ${error.message}`);
+            throw new Error(`3D model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
         }
     }
     async generateFromImage(imageBuffer, mimetype, filename = 'reference-image.jpg') {
@@ -120,7 +132,7 @@ class AIService {
             }
             catch (error) {
                 console.error('[Hitem3D] generateFromImage başarısız:', error.response?.data || error.message);
-                throw new Error(`Görselden model üretimi başlatılamadı: ${error.message}`);
+                throw new Error(`Görselden model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
             }
         }
         try {
@@ -151,7 +163,7 @@ class AIService {
         }
         catch (error) {
             console.error('[Tripo] generateFromImage başarısız:', error.response?.data || error.message);
-            throw new Error(`Görselden model üretimi başlatılamadı: ${error.message}`);
+            throw new Error(`Görselden model üretimi başlatılamadı: ${getProviderErrorMessage(error)}`);
         }
     }
     async checkTaskStatus(taskId) {
