@@ -231,6 +231,25 @@ export default function AddProductPage() {
       throw new Error(text.imageRequired);
     }
 
+    const uploadToBackend = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error(text.serverFailed);
+
+      const formData = new FormData();
+      orderedSelectedImages.forEach((image) => formData.append('images', image.file));
+
+      const response = await fetchWithTimeout('/api/models/upload-image', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      }, 60000);
+      const data = await readJsonResponse<{ urls?: string[]; error?: string }>(response, text.uploadFailed);
+      if (!response.ok || !data.urls?.length) {
+        throw new Error(data.error || text.uploadFailed);
+      }
+      return data.urls;
+    };
+
     setIsUploading(true);
     try {
       const result = await uploadFiles('productImageUploader', {
@@ -247,7 +266,13 @@ export default function AddProductPage() {
         normalizedMessage.includes('invalid token') ||
         normalizedMessage.includes('missing token') ||
         normalizedMessage.includes('uploadthing_token');
-      throw new Error(tokenConfigIssue ? text.uploadTokenInvalid : `${text.uploadFailed}: ${message}`);
+      try {
+        const urls = await uploadToBackend();
+        setUploadedImageUrls(urls);
+        return urls;
+      } catch (fallbackError: any) {
+        throw new Error(tokenConfigIssue ? text.uploadTokenInvalid : `${text.uploadFailed}: ${fallbackError.message || message}`);
+      }
     } finally {
       setIsUploading(false);
     }

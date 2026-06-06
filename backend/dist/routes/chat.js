@@ -4,6 +4,7 @@ const express_1 = require("express");
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
 const auth_1 = require("../middleware/auth");
+const admin_1 = require("../utils/admin");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
 const createConversationSchema = zod_1.z.object({
@@ -106,11 +107,12 @@ router.get('/sellers', auth_1.authenticateToken, async (req, res) => {
             },
             orderBy: { name: 'asc' },
         });
+        const visibleSellers = sellers.filter((seller) => !(0, admin_1.isAdminUser)({ email: seller.email, role: 'SELLER' }));
         res.json({
-            items: sellers.map((seller) => ({
+            items: visibleSellers.map((seller) => ({
                 id: seller.id,
                 name: seller.companyName || seller.name,
-                email: seller.email,
+                companyName: seller.companyName || seller.name,
                 activeProductCount: seller._count.aiModels,
             })),
         });

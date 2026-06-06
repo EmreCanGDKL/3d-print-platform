@@ -15,7 +15,7 @@ const ModelViewer = dynamic(() => import('@/components/ModelViewer'), {
 type Seller = {
   id: string;
   name: string;
-  email: string;
+  companyName?: string | null;
   activeProductCount: number;
 };
 
@@ -171,6 +171,7 @@ export default function AIGenerator() {
   const [referenceImageFailed, setReferenceImageFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [modelPreviewUrl, setModelPreviewUrl] = useState<string | null>(null);
+  const [modelPreviewFormat, setModelPreviewFormat] = useState<'gltf' | 'secure'>('gltf');
   const [validationError, setValidationError] = useState('');
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSellerId, setSelectedSellerId] = useState('');
@@ -256,6 +257,7 @@ export default function AIGenerator() {
   useEffect(() => {
     if (!generatedModelId) {
       setModelPreviewUrl(null);
+      setModelPreviewFormat('gltf');
       return;
     }
 
@@ -267,6 +269,21 @@ export default function AIGenerator() {
       if (!token) return;
 
       try {
+        const secureResponse = await fetchWithTimeout(`/api/models/secure-view/${generatedModelId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }, 30000);
+
+        if (secureResponse.ok) {
+          const blob = await secureResponse.blob();
+          objectUrl = URL.createObjectURL(blob);
+
+          if (!cancelled) {
+            setModelPreviewFormat('secure');
+            setModelPreviewUrl(objectUrl);
+          }
+          return;
+        }
+
         const response = await fetchWithTimeout(`/api/models/file/${generatedModelId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 30000);
@@ -277,6 +294,7 @@ export default function AIGenerator() {
         objectUrl = URL.createObjectURL(blob);
 
         if (!cancelled) {
+          setModelPreviewFormat('gltf');
           setModelPreviewUrl(objectUrl);
         }
       } catch {
@@ -502,7 +520,7 @@ export default function AIGenerator() {
               <p className="mt-2 text-sm text-emerald-800">Model ID: {generatedModelId}</p>
               <div className="mt-5 h-72 overflow-hidden rounded-xl border border-emerald-200 bg-white">
                 {modelPreviewUrl ? (
-                  <ModelViewer src={modelPreviewUrl} className="h-full w-full" />
+                  <ModelViewer src={modelPreviewUrl} format={modelPreviewFormat} className="h-full w-full" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm font-medium text-emerald-800">
                     {text.previewLoading}
@@ -549,7 +567,7 @@ export default function AIGenerator() {
                             <span className="font-semibold">{seller.name}</span>
                             {active && <span className="text-xs font-bold text-emerald-700">{text.selected}</span>}
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">{seller.email}</p>
+                          <p className="mt-1 text-xs text-slate-500">{seller.companyName || seller.name}</p>
                           <p className="mt-3 text-xs font-semibold text-slate-600">
                             {seller.activeProductCount} {text.products}
                           </p>

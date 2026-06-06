@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import aiRoutes from './routes/ai';
@@ -14,6 +15,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const uploadsDir = path.resolve(__dirname, '../uploads');
 const bootstrapPrisma = new PrismaClient();
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -99,7 +101,11 @@ async function ensureSqliteCompatibility() {
   `);
 }
 
-app.use(helmet());
+app.set('trust proxy', 1);
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+app.use('/uploads', express.static(uploadsDir));
 app.use(cors({
   origin(origin, callback) {
     if (!origin) {

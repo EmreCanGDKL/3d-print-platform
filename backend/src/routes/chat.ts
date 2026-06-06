@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { isAdminUser } from '../utils/admin';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -117,11 +118,13 @@ router.get('/sellers', authenticateToken, async (req: AuthRequest, res) => {
       orderBy: { name: 'asc' },
     });
 
+    const visibleSellers = sellers.filter((seller) => !isAdminUser({ email: seller.email, role: 'SELLER' }));
+
     res.json({
-      items: sellers.map((seller) => ({
+      items: visibleSellers.map((seller) => ({
         id: seller.id,
         name: seller.companyName || seller.name,
-        email: seller.email,
+        companyName: seller.companyName || seller.name,
         activeProductCount: seller._count.aiModels,
       })),
     });

@@ -44,14 +44,14 @@ PAGE_MAP = {
     "ch3": "34",
     "s31": "34",
     "s32": "36",
-    "s33": "45",
-    "s34": "46",
-    "s35": "47",
-    "s36": "48",
-    "sonuc": "49",
-    "kaynakca": "50",
-    "ekler": "50",
-    "ozgecmis": "50",
+    "s33": "44",
+    "s34": "45",
+    "s35": "46",
+    "s36": "46",
+    "sonuc": "47",
+    "kaynakca": "48",
+    "ekler": "48",
+    "ozgecmis": "48",
     "tab_1_1": "11",
     "tab_2_1": "14",
     "tab_2_2": "16",
@@ -60,8 +60,8 @@ PAGE_MAP = {
     "tab_2_5": "31",
     "tab_2_6": "33",
     "tab_3_1": "35",
-    "tab_3_2": "46",
-    "tab_3_3": "47",
+    "tab_3_2": "45",
+    "tab_3_3": "46",
     "fig_1_1": "6",
     "fig_2_1": "15",
     "fig_2_2": "16",
@@ -78,11 +78,11 @@ PAGE_MAP = {
     "fig_3_9": "43",
     "fig_3_10": "44",
     "fig_3_11": "44",
-    "fig_3_12": "45",
-    "app_a": "50",
-    "app_b": "50",
-    "app_c": "50",
-    "app_d": "50",
+    "fig_3_12": "44",
+    "app_a": "48",
+    "app_b": "48",
+    "app_c": "48",
+    "app_d": "48",
 }
 
 
@@ -461,7 +461,7 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
     )
 
 
-def build(total_pages: int = 50) -> None:
+def build(total_pages: int = 48) -> None:
     configure_lists()
     page_map_path = WORKSPACE / "thesis_work" / "page_map_45.json"
     page_map_path.write_text(json.dumps(PAGE_MAP, ensure_ascii=False, indent=2), encoding="utf-8")

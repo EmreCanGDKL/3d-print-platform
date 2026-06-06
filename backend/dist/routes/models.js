@@ -7,11 +7,19 @@ const express_1 = require("express");
 const client_1 = require("@prisma/client");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const multer_1 = __importDefault(require("multer"));
 const zod_1 = require("zod");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
 const uploadsDir = path_1.default.resolve(__dirname, '../../uploads');
+const productUpload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 8 * 1024 * 1024, files: 5 },
+    fileFilter: (_req, file, cb) => {
+        cb(null, file.mimetype.startsWith('image/'));
+    },
+});
 const productSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(120),
     description: zod_1.z.string().trim().max(1200).optional().default(''),
@@ -48,6 +56,12 @@ function getCatalogImages(model) {
 }
 function getSellerDisplayName(user) {
     return user.companyName || user.name;
+}
+function getPublicBackendUrl(req) {
+    const configured = process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_PUBLIC_URL;
+    if (configured)
+        return configured.replace(/\/$/, '');
+    return `${req.protocol}://${req.get('host')}`;
 }
 function toCatalogProduct(model) {
     return {
@@ -395,6 +409,34 @@ router.delete('/:modelId', auth_1.authenticateToken, async (req, res) => {
     }
     catch (error) {
         res.status(500).json({ error: 'Ürün silinemedi' });
+    }
+});
+router.post('/upload-image', auth_1.authenticateToken, productUpload.array('images', 5), async (req, res) => {
+    try {
+        if (req.user.role !== 'SELLER') {
+            return res.status(403).json({ error: 'Ürün görseli yüklemek için satıcı hesabı gerekli.' });
+        }
+        const files = (req.files || []);
+        if (files.length === 0) {
+            return res.status(400).json({ error: 'En az bir görsel seçin.' });
+        }
+        const publicBase = getPublicBackendUrl(req);
+        const urls = files.map((file, index) => {
+            const extension = file.mimetype.includes('png')
+                ? 'png'
+                : file.mimetype.includes('webp')
+                    ? 'webp'
+                    : 'jpg';
+            const key = `product-images/${req.user.id}/${Date.now()}-${index}.${extension}`;
+            const filePath = path_1.default.resolve(uploadsDir, key);
+            fs_1.default.mkdirSync(path_1.default.dirname(filePath), { recursive: true });
+            fs_1.default.writeFileSync(filePath, file.buffer);
+            return `${publicBase}/uploads/${key.replace(/\\/g, '/')}`;
+        });
+        res.status(201).json({ urls });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Görsel yüklenemedi.' });
     }
 });
 router.get('/secure-view/:modelId', auth_1.authenticateToken, async (req, res) => {

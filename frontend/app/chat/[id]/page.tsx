@@ -277,7 +277,6 @@ export default function Chat() {
         {conversation?.participant && (
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
             {conversation.participant.name}
-            {conversation.participant.email ? ` · ${conversation.participant.email}` : ''}
           </span>
         )}
       </div>

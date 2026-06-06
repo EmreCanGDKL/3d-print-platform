@@ -281,7 +281,6 @@ export default function MessagesPage() {
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
                   {item.participant.role === 'seller' ? text.seller : text.buyer}: {item.participant.name}
-                  {item.participant.email ? ` · ${item.participant.email}` : ''}
                 </p>
                 <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                   {item.latestMessage?.content || text.noPreview}

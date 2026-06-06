@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
 const client_1 = require("@prisma/client");
 const auth_1 = __importDefault(require("./routes/auth"));
 const ai_1 = __importDefault(require("./routes/ai"));
@@ -17,6 +18,7 @@ const images_1 = __importDefault(require("./routes/images"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
+const uploadsDir = path_1.default.resolve(__dirname, '../uploads');
 const bootstrapPrisma = new client_1.PrismaClient();
 const allowedOrigins = [
     process.env.FRONTEND_URL,
@@ -96,7 +98,11 @@ async function ensureSqliteCompatibility() {
     );
   `);
 }
-app.use((0, helmet_1.default)());
+app.set('trust proxy', 1);
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+app.use('/uploads', express_1.default.static(uploadsDir));
 app.use((0, cors_1.default)({
     origin(origin, callback) {
         if (!origin) {
