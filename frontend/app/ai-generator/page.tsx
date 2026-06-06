@@ -121,144 +121,6 @@ async function exportStlBlob(blob: Blob, format: 'gltf' | 'secure' | 'stl') {
   return new Blob([stl], { type: 'model/stl' });
 }
 
-function escapeXml(value: string) {
-  return value.replace(/[<>&"']/g, (char) => {
-    const map: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' };
-    return map[char];
-  });
-}
-
-function collectTriangles(object: THREE.Object3D) {
-  const vertices: number[][] = [];
-  const triangles: number[][] = [];
-  const vertex = new THREE.Vector3();
-
-  object.updateMatrixWorld(true);
-  object.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh || !mesh.geometry) return;
-
-    const geometry = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
-    const position = geometry.getAttribute('position');
-    for (let index = 0; index < position.count; index += 3) {
-      const triangle: number[] = [];
-      for (let offset = 0; offset < 3; offset += 1) {
-        vertex.fromBufferAttribute(position, index + offset).applyMatrix4(mesh.matrixWorld);
-        triangle.push(vertices.length);
-        vertices.push([vertex.x, vertex.y, vertex.z]);
-      }
-      triangles.push(triangle);
-    }
-    geometry.dispose();
-  });
-
-  return { vertices, triangles };
-}
-
-function crc32(bytes: Uint8Array) {
-  let crc = -1;
-  for (let i = 0; i < bytes.length; i += 1) {
-    crc ^= bytes[i];
-    for (let j = 0; j < 8; j += 1) {
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
-  }
-  return (crc ^ -1) >>> 0;
-}
-
-function writeUint16(output: number[], value: number) {
-  output.push(value & 255, (value >>> 8) & 255);
-}
-
-function writeUint32(output: number[], value: number) {
-  output.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255);
-}
-
-function createStoreZip(entries: Array<{ name: string; content: string }>) {
-  const encoder = new TextEncoder();
-  const output: number[] = [];
-  const central: number[] = [];
-
-  entries.forEach((entry) => {
-    const name = encoder.encode(entry.name);
-    const data = encoder.encode(entry.content);
-    const checksum = crc32(data);
-    const offset = output.length;
-
-    writeUint32(output, 0x04034b50);
-    writeUint16(output, 20);
-    writeUint16(output, 0);
-    writeUint16(output, 0);
-    writeUint16(output, 0);
-    writeUint16(output, 0);
-    writeUint32(output, checksum);
-    writeUint32(output, data.length);
-    writeUint32(output, data.length);
-    writeUint16(output, name.length);
-    writeUint16(output, 0);
-    output.push(...Array.from(name), ...Array.from(data));
-
-    writeUint32(central, 0x02014b50);
-    writeUint16(central, 20);
-    writeUint16(central, 20);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint32(central, checksum);
-    writeUint32(central, data.length);
-    writeUint32(central, data.length);
-    writeUint16(central, name.length);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint16(central, 0);
-    writeUint32(central, 0);
-    writeUint32(central, offset);
-    central.push(...Array.from(name));
-  });
-
-  const centralOffset = output.length;
-  output.push(...central);
-  writeUint32(output, 0x06054b50);
-  writeUint16(output, 0);
-  writeUint16(output, 0);
-  writeUint16(output, entries.length);
-  writeUint16(output, entries.length);
-  writeUint32(output, central.length);
-  writeUint32(output, centralOffset);
-  writeUint16(output, 0);
-
-  return new Uint8Array(output);
-}
-
-async function export3mfBlob(blob: Blob, format: 'gltf' | 'secure' | 'stl') {
-  const object = await buildExportObject(blob, format);
-  const { vertices, triangles } = collectTriangles(object);
-  const vertexXml = vertices
-    .map(([x, y, z]) => `<vertex x="${x.toFixed(5)}" y="${y.toFixed(5)}" z="${z.toFixed(5)}"/>`)
-    .join('');
-  const triangleXml = triangles
-    .map(([v1, v2, v3]) => `<triangle v1="${v1}" v2="${v2}" v3="${v3}"/>`)
-    .join('');
-  const modelXml = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="tr-TR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh><vertices>${vertexXml}</vertices><triangles>${triangleXml}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
-  const zip = createStoreZip([
-    {
-      name: '[Content_Types].xml',
-      content:
-        '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>',
-    },
-    {
-      name: '_rels/.rels',
-      content:
-        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
-    },
-    { name: '3D/3dmodel.model', content: modelXml },
-  ]);
-
-  return new Blob([zip], { type: 'model/3mf' });
-}
-
 const copy = {
   tr: {
     created: 'Model başarıyla oluşturuldu.',
@@ -290,7 +152,6 @@ const copy = {
     downloadTitle: 'Model dosyalarını indir',
     downloadGlb: 'GLB indir',
     downloadStl: 'STL indir',
-    download3mf: '3MF indir',
     downloadError: 'Model dosyası indirilemedi.',
     previewLoading: '3D önizleme hazırlanıyor...',
     previewUnavailable: '3D önizleme açılamadı. Model dosyası hazır, ancak tarayıcıda gösterilemiyor.',
@@ -345,7 +206,6 @@ const copy = {
     downloadTitle: 'Download model files',
     downloadGlb: 'Download GLB',
     downloadStl: 'Download STL',
-    download3mf: 'Download 3MF',
     downloadError: 'Model file could not be downloaded.',
     previewLoading: 'Preparing 3D preview...',
     previewUnavailable: '3D preview could not be opened. The model file is ready, but cannot be shown in the browser.',
@@ -435,7 +295,7 @@ export default function AIGenerator() {
     const examplePrompt =
       params.get('prompt') ||
       (exampleTitle
-        ? `Bu referans görsele benzer, 3D baskıya uygun, temiz yüzeyli, STL/3MF üretimine uygun bir 3D model oluştur: ${exampleTitle}. Arama konusu: ${exampleQuery || exampleCategory}.`
+        ? `Bu referans görsele benzer, 3D baskıya uygun, temiz yüzeyli ve STL üretimine uygun bir 3D model oluştur: ${exampleTitle}. Arama konusu: ${exampleQuery || exampleCategory}.`
         : '');
     const exampleImageUrl = params.get('imageUrl') || '';
     const examplePreviewUrl =
@@ -664,7 +524,7 @@ export default function AIGenerator() {
     );
   };
 
-  const downloadModel = async (format: 'glb' | 'stl' | '3mf') => {
+  const downloadModel = async (format: 'glb' | 'stl') => {
     if (!generatedModelId || !modelFileBlob) return;
 
     try {
@@ -682,9 +542,6 @@ export default function AIGenerator() {
         saveBlob(stlBlob, getModelFileName(generatedModelId, 'stl'));
         return;
       }
-
-      const threeMfBlob = await export3mfBlob(modelFileBlob, modelPreviewFormat);
-      saveBlob(threeMfBlob, getModelFileName(generatedModelId, '3mf'));
     } catch (err) {
       window.alert(text.downloadError);
     }
@@ -836,7 +693,7 @@ export default function AIGenerator() {
                     <Download className="h-5 w-5 text-emerald-700" />
                     <h4 className="font-semibold text-slate-950">{text.downloadTitle}</h4>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       onClick={() => void downloadModel('glb')}
@@ -853,14 +710,6 @@ export default function AIGenerator() {
                     >
                       <Download className="h-4 w-4" />
                       {text.downloadStl}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void downloadModel('3mf')}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-stone-100"
-                    >
-                      <Download className="h-4 w-4" />
-                      {text.download3mf}
                     </button>
                   </div>
                 </div>

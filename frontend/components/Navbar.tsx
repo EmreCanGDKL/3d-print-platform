@@ -229,12 +229,12 @@ export function Navbar() {
             </div>
           </Link>
 
-          <div className="desktop-nav items-center justify-center gap-7">
+          <div className="desktop-nav items-center justify-center gap-4">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm transition ${
+                className={`inline-flex h-11 items-center justify-center whitespace-nowrap rounded-xl px-5 text-sm font-semibold leading-none shadow-sm transition ${
                   link.href === '/ai-generator'
                     ? 'bg-slate-950 text-white hover:bg-slate-800'
                     : 'border border-stone-300 bg-white text-slate-800 hover:bg-stone-100'
