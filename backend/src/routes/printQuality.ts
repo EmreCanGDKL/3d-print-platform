@@ -140,7 +140,7 @@ async function analyzeWithModelService(file: Express.Multer.File): Promise<Defec
 
   const response = await axios.post(modelServiceUrl, formData, {
     headers: formData.getHeaders(),
-    timeout: 45_000,
+    timeout: 120_000,
     maxBodyLength: Infinity,
   });
 

@@ -27,6 +27,11 @@ type AiHistoryItem = {
   createdAt: string;
 };
 
+type StoredUser = {
+  id: string;
+  role: 'USER' | 'SELLER' | 'ADMIN';
+};
+
 function convertReferenceBlobToPng(blob: Blob, fileName: string) {
   return new Promise<File>((resolve, reject) => {
     const objectUrl = URL.createObjectURL(blob);
@@ -100,6 +105,9 @@ const copy = {
     selected: 'Seçildi',
     messageSeller: 'Seçili satıcıya mesaj at',
     chooseSeller: 'Devam etmek için bir satıcı seçin.',
+    customerOnlyTitle: 'AI model oluşturma müşteri hesapları içindir',
+    customerOnlyDescription:
+      'Satıcı hesapları başka satıcılara AI model üretip teklif mesajı gönderemez. Satıcı olarak ürün eklemek için Ürün ekle sayfasını kullanın.',
     tipsTitle: 'Daha iyi sonuç için',
     historyTitle: 'Eski üretimler',
     historyEmpty: 'Henüz kayıtlı AI üretimi yok.',
@@ -147,6 +155,9 @@ const copy = {
     selected: 'Selected',
     messageSeller: 'Message selected seller',
     chooseSeller: 'Choose a seller to continue.',
+    customerOnlyTitle: 'AI model creation is for customer accounts',
+    customerOnlyDescription:
+      'Seller accounts cannot generate AI models and send quote messages to other sellers. Use the add product page for seller catalog items.',
     tipsTitle: 'For better results',
     historyTitle: 'Past generations',
     historyEmpty: 'No saved AI generations yet.',
@@ -181,6 +192,7 @@ export default function AIGenerator() {
   const [sellerError, setSellerError] = useState('');
   const [history, setHistory] = useState<AiHistoryItem[]>([]);
   const [historyError, setHistoryError] = useState('');
+  const [user, setUser] = useState<StoredUser | null>(null);
   const {
     generating,
     generatedModelId,
@@ -193,6 +205,14 @@ export default function AIGenerator() {
   } = useAiGeneration();
 
   useEffect(() => {
+    const rawUser = localStorage.getItem('user');
+    if (rawUser) {
+      try {
+        setUser(JSON.parse(rawUser) as StoredUser);
+      } catch {
+        setUser(null);
+      }
+    }
     void loadSellers();
     void loadHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,6 +386,20 @@ export default function AIGenerator() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
+    const rawUser = localStorage.getItem('user');
+    if (rawUser) {
+      try {
+        const storedUser = JSON.parse(rawUser) as StoredUser;
+        if (storedUser.role !== 'USER') {
+          setSellers([]);
+          setSelectedSellerId('');
+          return;
+        }
+      } catch {
+        return;
+      }
+    }
+
     try {
       const response = await fetchWithTimeout('/api/chat/sellers', {
         headers: { Authorization: `Bearer ${token}` },
@@ -387,6 +421,11 @@ export default function AIGenerator() {
     clearError();
     clearResult();
     setValidationError('');
+
+    if (user?.role && user.role !== 'USER') {
+      setValidationError(text.customerOnlyDescription);
+      return;
+    }
 
     if (!imageFile && !referenceSourceUrl) {
       setValidationError(text.imageRequired);
@@ -410,6 +449,10 @@ export default function AIGenerator() {
 
   const startChat = () => {
     if (!generatedModelId) return;
+    if (user?.role && user.role !== 'USER') {
+      setSellerError(text.customerOnlyDescription);
+      return;
+    }
     if (!selectedSellerId) {
       setSellerError(text.chooseSeller);
       return;
@@ -512,10 +555,17 @@ export default function AIGenerator() {
               </div>
           </div>
 
+          {user?.role && user.role !== 'USER' && (
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-bold">{text.customerOnlyTitle}</p>
+              <p className="mt-1 leading-6">{text.customerOnlyDescription}</p>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating || (!imageFile && !referenceSourceUrl)}
+            disabled={generating || (!imageFile && !referenceSourceUrl) || Boolean(user?.role && user.role !== 'USER')}
             className="w-full rounded-xl bg-slate-950 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? text.generating : text.create}
@@ -554,6 +604,7 @@ export default function AIGenerator() {
                 )}
               </div>
 
+              {(!user?.role || user.role === 'USER') && (
               <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4">
                 <div className="flex items-start gap-3">
                   <UsersRound className="mt-0.5 h-5 w-5 text-emerald-700" />
@@ -615,6 +666,7 @@ export default function AIGenerator() {
                   {text.messageSeller}
                 </button>
               </div>
+              )}
             </div>
           )}
         </section>

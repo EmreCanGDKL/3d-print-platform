@@ -263,7 +263,7 @@ export default function PrintQualityPage() {
           method: 'POST',
           body: formData,
         },
-        60000,
+        130000,
       );
       const data = await readJsonResponse<DefectResult>(response, text.failed);
       if (!response.ok) throw new Error(data.error || text.failed);

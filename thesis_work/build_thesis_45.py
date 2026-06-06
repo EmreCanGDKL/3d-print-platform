@@ -162,7 +162,7 @@ def configure_lists() -> None:
         ("Şekil 3.6. Giriş ekranı", "fig_3_6"),
         ("Şekil 3.7. Satıcı ürün yönetimi ekranı", "fig_3_7"),
         ("Şekil 3.8. Satıcı ürün ekleme ekranı", "fig_3_8"),
-        ("Şekil 3.9. Favoriler ekranı", "fig_3_9"),
+        ("Şekil 3.9. Kalite kontrol ekranı", "fig_3_9"),
         ("Şekil 3.10. Mesajlar ekranı", "fig_3_10"),
         ("Şekil 3.11. Sipariş takip ekranı", "fig_3_11"),
         ("Şekil 3.12. Derleme ve doğrulama özeti", "fig_3_12"),
@@ -433,6 +433,13 @@ def add_scenario_and_quality_sections(doc: Document) -> None:
             "harici servis gecikmesi yaşansa bile proje mimarisi ve kullanıcı akışlarının jüriye gösterilebilmesi",
             "dış servis bağımlılığının bitirme projesinin tamamını başarısız göstermemesi için yedek içerik akışı önemlidir",
         ),
+        (
+            "2.9.19. Baskı Kalite Kontrol Senaryosu",
+            "üretilen fiziksel parçaya ait fotoğrafın baskı hatası açısından ön değerlendirmeye alınması",
+            "kalite kontrol ekranında yüklenen baskı fotoğrafı analiz edilir; sistem hata sınıfı, güven skoru, önem düzeyi ve çözüm önerilerini kullanıcıya sunar",
+            "satıcının veya kullanıcının baskı sonrası kalite değerlendirmesini sistem içinde belgeleyebilmesi ve aynı parçayı farklı açıdan tekrar kontrol edebilmesi",
+            "geçerli görsel yüklendiğinde sonuç kartı ve öneriler üretilir; eksik veya uygun olmayan görselde analiz başlatılmadan kullanıcı bilgilendirilir",
+        ),
     ]
     for heading, focus, implementation, contribution, acceptance in scenarios:
         bt.add_section_heading(doc, heading)
@@ -459,6 +466,7 @@ def add_scenario_and_quality_sections(doc: Document) -> None:
         ["Fikirden AI üretime", "Examples, image search, AI generation", "Referans görsel ve prompt üretim ekranına taşınır."],
         ["Pazaryeri", "Marketplace, product detail, favorites, cart", "Ürünler aranır, incelenir ve kullanıcı listelerine eklenir."],
         ["Satıcı operasyonu", "Seller products, add product, uploads", "Satıcı ürününü görsellerle katalogda yayınlayabilir."],
+        ["Kalite kontrol", "Quality control, image analysis, defect classes", "Baskı fotoğrafı üzerinden hata sınıfı ve çözüm önerisi üretilebilir."],
         ["İletişim ve sipariş", "Chat, orders, conversation status", "Ürün veya AI modeli bağlamında takip edilebilir konuşma oluşur."],
         ["Dayanıklılık", "Admin examples, cache, proxy, error handling", "Dış servis sorunu temel demo akışını tamamen kesmez."],
     ]
@@ -517,6 +525,12 @@ def add_scenario_and_quality_sections(doc: Document) -> None:
             "Bir bitirme tezinde kabul edilebilirlik yalnızca sayfa sayısına bağlı değildir. Projenin çalışır olması, tez metninin projeyle tutarlı olması, yöntem ve bulguların açık yazılması, kaynakçanın akademik düzende verilmesi ve jüriye gösterilebilir ekranların bulunması önemlidir.",
             "PrintForge tezi bu ölçütler açısından değerlendirildiğinde, çalışan site ekran görüntüleri, sistem mimarisi, veri modeli, modül açıklamaları, test senaryoları ve kaynakça ile desteklenen bütünlüklü bir yapı sunmaktadır. Tezin güçlü tarafı, AI üretim fikrini tek başına bırakmayıp pazaryeri, mesajlaşma ve satıcı yönetimiyle tamamlamasıdır.",
             "Kabul riskini azaltmak için savunmada özellikle ana sayfa, örnek görsel arama, AI üretim ekranı, satıcı ürün ekleme, katalog ve mesaj/sipariş akışları sırayla gösterilmelidir. Böyle bir demo akışı, tezde anlatılan mimarinin gerçek uygulama üzerinde karşılığı olduğunu açık biçimde kanıtlar.",
+        ),
+        (
+            "2.10.9. Baskı Kalite Kontrol Modülünün Genişletilebilirliği",
+            "Yeni eklenen kalite kontrol yaklaşımı, platformun yalnızca ürün yayımlama ve model üretme tarafında kalmadığını, fiziksel baskı sonrasındaki kalite gözlemini de kapsayabilecek biçimde genişletildiğini göstermektedir. Ekranda kullanılan demo tahmin yapısı, ileride eğitilmiş Python model servisine bağlanacak biçimde tasarlanmıştır.",
+            "Kalite kontrol akışında warping, stringing, layer shifting, cracking ve off-platform gibi FDM baskıda sık karşılaşılan hata sınıflarının ayrı ayrı gösterilmesi, sistemin üretim sonrası geri bildirim için uygun bir temel sunduğunu kanıtlar. Güven skoru ve önem düzeyi, kullanıcının sonucu tek bir etiket olarak değil, karar destek bilgisi olarak değerlendirmesine yardımcı olur.",
+            "Bu modülün geliştirilmesiyle satıcılar baskı fotoğraflarını sipariş kaydıyla ilişkilendirebilir, kullanıcıya teslim öncesi kalite kanıtı sunabilir ve tekrarlayan hatalar üzerinden üretim parametrelerini iyileştirebilir. Bu nedenle kalite kontrol modülü, projenin gelecek çalışmalar bölümünde önerilen sürdürülebilir üretim yaklaşımıyla doğrudan ilişkilidir.",
         ),
     ]
     for heading, p1, p2, p3 in quality_topics:

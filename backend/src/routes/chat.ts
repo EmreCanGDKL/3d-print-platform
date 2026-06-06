@@ -158,6 +158,10 @@ router.post('/new', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Model bulunamadı' });
     }
 
+    if (model.type === 'AI' && req.user!.role !== 'USER') {
+      return res.status(403).json({ error: 'AI modeli için satıcıya mesaj gönderme yalnızca müşteri hesapları için kullanılabilir.' });
+    }
+
     const finalSellerId = sellerId || model.userId;
     const seller = await prisma.user.findFirst({
       where: { id: finalSellerId, role: 'SELLER' },

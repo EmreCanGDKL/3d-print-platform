@@ -88,6 +88,10 @@ router.post('/generate', authenticateToken, upload.single('image'), async (req: 
     const { type, prompt, imageUrl } = generateSchema.parse(req.body);
     const userId = req.user!.id;
 
+    if (req.user!.role !== 'USER') {
+      return res.status(403).json({ error: 'AI model oluşturma yalnızca müşteri hesapları için kullanılabilir.' });
+    }
+
     let result;
 
     if (type === 'text') {

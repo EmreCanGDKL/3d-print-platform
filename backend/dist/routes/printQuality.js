@@ -127,7 +127,7 @@ async function analyzeWithModelService(file) {
     });
     const response = await axios_1.default.post(modelServiceUrl, formData, {
         headers: formData.getHeaders(),
-        timeout: 45000,
+        timeout: 120000,
         maxBodyLength: Infinity,
     });
     const predictedKey = String(response.data?.key || '').trim();

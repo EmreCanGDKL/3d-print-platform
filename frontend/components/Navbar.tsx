@@ -95,12 +95,6 @@ export function Navbar() {
   const { language, toggleLanguage } = useLanguage();
   const { generating, generatedModelId } = useAiGeneration();
   const text = copy[language];
-  const navLinks = [
-    { href: '/marketplace', label: text.catalog },
-    { href: '/examples', label: text.examples },
-    { href: '/ai-generator', label: text.aiCreate },
-    { href: '/print-quality', label: text.printQuality },
-  ];
 
   const [user, setUser] = useState<StoredUser | null>(null);
   const [open, setOpen] = useState(false);
@@ -210,6 +204,12 @@ export function Navbar() {
   const initials = user?.name?.slice(0, 1).toLocaleUpperCase(language === 'tr' ? 'tr-TR' : 'en-US') || 'U';
   const roleLabel = user?.role === 'ADMIN' ? 'Admin' : user?.role === 'SELLER' ? text.seller : text.customer;
   const profileName = user?.role === 'SELLER' ? user.companyName || user.displayName || user.name : user?.name;
+  const navLinks = [
+    { href: '/marketplace', label: text.catalog },
+    { href: '/examples', label: text.examples },
+    ...((user?.role === 'SELLER') ? [] : [{ href: '/ai-generator', label: text.aiCreate }]),
+    { href: '/print-quality', label: text.printQuality },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 border-b border-stone-200 bg-white/95 shadow-sm shadow-slate-900/[0.03] backdrop-blur">
