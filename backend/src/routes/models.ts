@@ -574,7 +574,11 @@ router.get('/file/:modelId', authenticateToken, async (req: AuthRequest, res) =>
       return res.status(403).json({ error: 'Erişim reddedildi' });
     }
 
-    const storageKey = model.originalStorageKey || model.viewerDataKey;
+    const hasLocalViewerFile = model.viewerDataKey && !/^https?:\/\//i.test(model.viewerDataKey);
+    const storageKey =
+      hasLocalViewerFile && /^https?:\/\//i.test(model.originalStorageKey || '')
+        ? model.viewerDataKey
+        : model.originalStorageKey || model.viewerDataKey;
 
     if (/^https?:\/\//i.test(storageKey)) {
       return res.redirect(storageKey);

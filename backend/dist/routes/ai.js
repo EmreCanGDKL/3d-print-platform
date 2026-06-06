@@ -164,7 +164,7 @@ router.get('/status/:taskId', auth_1.authenticateToken, async (req, res) => {
                         where: { id: model.id },
                         data: {
                             status: 'COMPLETED',
-                            originalStorageKey: status.output.model,
+                            originalStorageKey: originalKey,
                             viewerDataKey: originalKey,
                             vertexCount: null,
                             volume: null,
@@ -184,7 +184,7 @@ router.get('/status/:taskId', auth_1.authenticateToken, async (req, res) => {
                         where: { id: model.id },
                         data: {
                             status: 'COMPLETED',
-                            originalStorageKey: status.output.model,
+                            originalStorageKey: originalKey,
                             viewerDataKey: viewerKey,
                             vertexCount: secureData.metadata.vertexCount,
                             volume: secureData.metadata.volume,
