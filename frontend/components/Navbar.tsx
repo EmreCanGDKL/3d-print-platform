@@ -207,7 +207,7 @@ export function Navbar() {
   const navLinks = [
     { href: '/marketplace', label: text.catalog },
     { href: '/examples', label: text.examples },
-    ...((user?.role === 'SELLER') ? [] : [{ href: '/ai-generator', label: text.aiCreate }]),
+    { href: '/ai-generator', label: text.aiCreate },
     { href: '/print-quality', label: text.printQuality },
   ];
 

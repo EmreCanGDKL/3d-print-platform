@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle2, MessageSquare, Sparkles, UsersRound } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, MessageSquare, Sparkles, UsersRound } from 'lucide-react';
+import * as THREE from 'three';
 import { useAiGeneration } from '@/lib/ai-generation';
 import { useLanguage } from '@/lib/language';
 import { fetchWithTimeout, readJsonResponse } from '@/lib/api';
@@ -68,6 +69,196 @@ function convertReferenceBlobToPng(blob: Blob, fileName: string) {
   });
 }
 
+function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getModelFileName(modelId: string, extension: string) {
+  return `printforge-${modelId}.${extension}`;
+}
+
+function makeMeshFromPositions(positions: number[]) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
+}
+
+async function buildExportObject(blob: Blob, format: 'gltf' | 'secure' | 'stl') {
+  if (format === 'gltf') {
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const arrayBuffer = await blob.arrayBuffer();
+    const loader = new GLTFLoader();
+    const gltf = await new Promise<any>((resolve, reject) => {
+      loader.parse(arrayBuffer, '', resolve, reject);
+    });
+    return gltf.scene as THREE.Object3D;
+  }
+
+  if (format === 'stl') {
+    const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
+    const arrayBuffer = await blob.arrayBuffer();
+    const geometry = new STLLoader().parse(arrayBuffer);
+    geometry.computeVertexNormals();
+    return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
+  }
+
+  const data = JSON.parse(await blob.text()) as { positions?: number[] };
+  return makeMeshFromPositions(data.positions || []);
+}
+
+async function exportStlBlob(blob: Blob, format: 'gltf' | 'secure' | 'stl') {
+  const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js');
+  const object = await buildExportObject(blob, format);
+  const stl = new STLExporter().parse(object, { binary: false }) as string;
+  return new Blob([stl], { type: 'model/stl' });
+}
+
+function escapeXml(value: string) {
+  return value.replace(/[<>&"']/g, (char) => {
+    const map: Record<string, string> = { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' };
+    return map[char];
+  });
+}
+
+function collectTriangles(object: THREE.Object3D) {
+  const vertices: number[][] = [];
+  const triangles: number[][] = [];
+  const vertex = new THREE.Vector3();
+
+  object.updateMatrixWorld(true);
+  object.traverse((child) => {
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.geometry) return;
+
+    const geometry = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+    const position = geometry.getAttribute('position');
+    for (let index = 0; index < position.count; index += 3) {
+      const triangle: number[] = [];
+      for (let offset = 0; offset < 3; offset += 1) {
+        vertex.fromBufferAttribute(position, index + offset).applyMatrix4(mesh.matrixWorld);
+        triangle.push(vertices.length);
+        vertices.push([vertex.x, vertex.y, vertex.z]);
+      }
+      triangles.push(triangle);
+    }
+    geometry.dispose();
+  });
+
+  return { vertices, triangles };
+}
+
+function crc32(bytes: Uint8Array) {
+  let crc = -1;
+  for (let i = 0; i < bytes.length; i += 1) {
+    crc ^= bytes[i];
+    for (let j = 0; j < 8; j += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ -1) >>> 0;
+}
+
+function writeUint16(output: number[], value: number) {
+  output.push(value & 255, (value >>> 8) & 255);
+}
+
+function writeUint32(output: number[], value: number) {
+  output.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255);
+}
+
+function createStoreZip(entries: Array<{ name: string; content: string }>) {
+  const encoder = new TextEncoder();
+  const output: number[] = [];
+  const central: number[] = [];
+
+  entries.forEach((entry) => {
+    const name = encoder.encode(entry.name);
+    const data = encoder.encode(entry.content);
+    const checksum = crc32(data);
+    const offset = output.length;
+
+    writeUint32(output, 0x04034b50);
+    writeUint16(output, 20);
+    writeUint16(output, 0);
+    writeUint16(output, 0);
+    writeUint16(output, 0);
+    writeUint16(output, 0);
+    writeUint32(output, checksum);
+    writeUint32(output, data.length);
+    writeUint32(output, data.length);
+    writeUint16(output, name.length);
+    writeUint16(output, 0);
+    output.push(...Array.from(name), ...Array.from(data));
+
+    writeUint32(central, 0x02014b50);
+    writeUint16(central, 20);
+    writeUint16(central, 20);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint32(central, checksum);
+    writeUint32(central, data.length);
+    writeUint32(central, data.length);
+    writeUint16(central, name.length);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint16(central, 0);
+    writeUint32(central, 0);
+    writeUint32(central, offset);
+    central.push(...Array.from(name));
+  });
+
+  const centralOffset = output.length;
+  output.push(...central);
+  writeUint32(output, 0x06054b50);
+  writeUint16(output, 0);
+  writeUint16(output, 0);
+  writeUint16(output, entries.length);
+  writeUint16(output, entries.length);
+  writeUint32(output, central.length);
+  writeUint32(output, centralOffset);
+  writeUint16(output, 0);
+
+  return new Uint8Array(output);
+}
+
+async function export3mfBlob(blob: Blob, format: 'gltf' | 'secure' | 'stl') {
+  const object = await buildExportObject(blob, format);
+  const { vertices, triangles } = collectTriangles(object);
+  const vertexXml = vertices
+    .map(([x, y, z]) => `<vertex x="${x.toFixed(5)}" y="${y.toFixed(5)}" z="${z.toFixed(5)}"/>`)
+    .join('');
+  const triangleXml = triangles
+    .map(([v1, v2, v3]) => `<triangle v1="${v1}" v2="${v2}" v3="${v3}"/>`)
+    .join('');
+  const modelXml = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="tr-TR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh><vertices>${vertexXml}</vertices><triangles>${triangleXml}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
+  const zip = createStoreZip([
+    {
+      name: '[Content_Types].xml',
+      content:
+        '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>',
+    },
+    {
+      name: '_rels/.rels',
+      content:
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
+    },
+    { name: '3D/3dmodel.model', content: modelXml },
+  ]);
+
+  return new Blob([zip], { type: 'model/3mf' });
+}
+
 const copy = {
   tr: {
     created: 'Model başarıyla oluşturuldu.',
@@ -96,6 +287,11 @@ const copy = {
     apiTimeout: 'Sunucudan beklenen sürede yanıt alınamadı. Üretim yoğun olabilir; lütfen biraz sonra tekrar deneyin.',
     create: 'Model oluştur',
     readyTitle: 'Model hazır',
+    downloadTitle: 'Model dosyalarını indir',
+    downloadGlb: 'GLB indir',
+    downloadStl: 'STL indir',
+    download3mf: '3MF indir',
+    downloadError: 'Model dosyası indirilemedi.',
     previewLoading: '3D önizleme hazırlanıyor...',
     previewUnavailable: '3D önizleme açılamadı. Model dosyası hazır, ancak tarayıcıda gösterilemiyor.',
     sellerTitle: 'Mesaj göndereceğiniz satıcıyı seçin',
@@ -105,9 +301,9 @@ const copy = {
     selected: 'Seçildi',
     messageSeller: 'Seçili satıcıya mesaj at',
     chooseSeller: 'Devam etmek için bir satıcı seçin.',
-    customerOnlyTitle: 'AI model oluşturma müşteri hesapları içindir',
-    customerOnlyDescription:
-      'Satıcı hesapları başka satıcılara AI model üretip teklif mesajı gönderemez. Satıcı olarak ürün eklemek için Ürün ekle sayfasını kullanın.',
+    sellerNoteTitle: 'Satıcı hesabı',
+    sellerNoteDescription:
+      'AI ile model oluşturabilirsiniz. Satıcı hesaplarında başka satıcıya teklif mesajı gönderme bölümü gösterilmez.',
     tipsTitle: 'Daha iyi sonuç için',
     historyTitle: 'Eski üretimler',
     historyEmpty: 'Henüz kayıtlı AI üretimi yok.',
@@ -146,6 +342,11 @@ const copy = {
     apiTimeout: 'The server did not respond in time. Generation may be busy; please try again shortly.',
     create: 'Create model',
     readyTitle: 'Model ready',
+    downloadTitle: 'Download model files',
+    downloadGlb: 'Download GLB',
+    downloadStl: 'Download STL',
+    download3mf: 'Download 3MF',
+    downloadError: 'Model file could not be downloaded.',
     previewLoading: 'Preparing 3D preview...',
     previewUnavailable: '3D preview could not be opened. The model file is ready, but cannot be shown in the browser.',
     sellerTitle: 'Choose the seller to message',
@@ -155,9 +356,9 @@ const copy = {
     selected: 'Selected',
     messageSeller: 'Message selected seller',
     chooseSeller: 'Choose a seller to continue.',
-    customerOnlyTitle: 'AI model creation is for customer accounts',
-    customerOnlyDescription:
-      'Seller accounts cannot generate AI models and send quote messages to other sellers. Use the add product page for seller catalog items.',
+    sellerNoteTitle: 'Seller account',
+    sellerNoteDescription:
+      'You can create models with AI. Seller accounts do not see the section for sending quote messages to other sellers.',
     tipsTitle: 'For better results',
     historyTitle: 'Past generations',
     historyEmpty: 'No saved AI generations yet.',
@@ -185,6 +386,7 @@ export default function AIGenerator() {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [modelPreviewUrl, setModelPreviewUrl] = useState<string | null>(null);
   const [modelPreviewFormat, setModelPreviewFormat] = useState<'gltf' | 'secure' | 'stl'>('gltf');
+  const [modelFileBlob, setModelFileBlob] = useState<Blob | null>(null);
   const [modelPreviewError, setModelPreviewError] = useState('');
   const [validationError, setValidationError] = useState('');
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -282,6 +484,7 @@ export default function AIGenerator() {
     if (!generatedModelId) {
       setModelPreviewUrl(null);
       setModelPreviewFormat('gltf');
+      setModelFileBlob(null);
       setModelPreviewError('');
       return;
     }
@@ -306,6 +509,7 @@ export default function AIGenerator() {
           if (!cancelled) {
             setModelPreviewFormat('secure');
             setModelPreviewUrl(objectUrl);
+            setModelFileBlob(blob);
           }
           return;
         }
@@ -329,10 +533,12 @@ export default function AIGenerator() {
         if (!cancelled) {
           setModelPreviewFormat(nextFormat);
           setModelPreviewUrl(objectUrl);
+          setModelFileBlob(blob);
         }
       } catch {
         if (!cancelled) {
           setModelPreviewUrl(null);
+          setModelFileBlob(null);
           setModelPreviewError(text.previewUnavailable);
         }
       }
@@ -422,11 +628,6 @@ export default function AIGenerator() {
     clearResult();
     setValidationError('');
 
-    if (user?.role && user.role !== 'USER') {
-      setValidationError(text.customerOnlyDescription);
-      return;
-    }
-
     if (!imageFile && !referenceSourceUrl) {
       setValidationError(text.imageRequired);
       return;
@@ -450,7 +651,7 @@ export default function AIGenerator() {
   const startChat = () => {
     if (!generatedModelId) return;
     if (user?.role && user.role !== 'USER') {
-      setSellerError(text.customerOnlyDescription);
+      setSellerError(text.sellerNoteDescription);
       return;
     }
     if (!selectedSellerId) {
@@ -461,6 +662,32 @@ export default function AIGenerator() {
     router.push(
       `/chat/new?modelId=${encodeURIComponent(generatedModelId)}&type=AI&sellerId=${encodeURIComponent(selectedSellerId)}`,
     );
+  };
+
+  const downloadModel = async (format: 'glb' | 'stl' | '3mf') => {
+    if (!generatedModelId || !modelFileBlob) return;
+
+    try {
+      if (format === 'glb') {
+        if (modelPreviewFormat !== 'gltf') {
+          window.alert(text.downloadError);
+          return;
+        }
+        saveBlob(modelFileBlob, getModelFileName(generatedModelId, 'glb'));
+        return;
+      }
+
+      if (format === 'stl') {
+        const stlBlob = modelPreviewFormat === 'stl' ? modelFileBlob : await exportStlBlob(modelFileBlob, modelPreviewFormat);
+        saveBlob(stlBlob, getModelFileName(generatedModelId, 'stl'));
+        return;
+      }
+
+      const threeMfBlob = await export3mfBlob(modelFileBlob, modelPreviewFormat);
+      saveBlob(threeMfBlob, getModelFileName(generatedModelId, '3mf'));
+    } catch (err) {
+      window.alert(text.downloadError);
+    }
   };
 
   return (
@@ -555,17 +782,17 @@ export default function AIGenerator() {
               </div>
           </div>
 
-          {user?.role && user.role !== 'USER' && (
+          {user?.role && user.role === 'SELLER' && (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p className="font-bold">{text.customerOnlyTitle}</p>
-              <p className="mt-1 leading-6">{text.customerOnlyDescription}</p>
+              <p className="font-bold">{text.sellerNoteTitle}</p>
+              <p className="mt-1 leading-6">{text.sellerNoteDescription}</p>
             </div>
           )}
 
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={generating || (!imageFile && !referenceSourceUrl) || Boolean(user?.role && user.role !== 'USER')}
+            disabled={generating || (!imageFile && !referenceSourceUrl)}
             className="w-full rounded-xl bg-slate-950 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generating ? text.generating : text.create}
@@ -603,6 +830,41 @@ export default function AIGenerator() {
                   </div>
                 )}
               </div>
+              {modelFileBlob && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-white p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Download className="h-5 w-5 text-emerald-700" />
+                    <h4 className="font-semibold text-slate-950">{text.downloadTitle}</h4>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => void downloadModel('glb')}
+                      disabled={modelPreviewFormat !== 'gltf'}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="h-4 w-4" />
+                      {text.downloadGlb}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadModel('stl')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-stone-100"
+                    >
+                      <Download className="h-4 w-4" />
+                      {text.downloadStl}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadModel('3mf')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-stone-100"
+                    >
+                      <Download className="h-4 w-4" />
+                      {text.download3mf}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {(!user?.role || user.role === 'USER') && (
               <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4">

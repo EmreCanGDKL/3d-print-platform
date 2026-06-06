@@ -557,18 +557,18 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
     bt.add_section_heading(doc, "3.1. Gerçekleştirilen Modüller")
     bt.add_para(
         doc,
-        "PrintForge projesi kapsamında kullanıcı, satıcı ve admin rollerini destekleyen bütünleşik bir web uygulaması geliştirilmiştir. Sistem; ürün katalogu, örnek görsel arama, AI destekli model üretimi, satıcı ürün yönetimi, favoriler, sepet, mesajlaşma ve sipariş takibi modüllerinden oluşmaktadır. Bulgular, uygulamanın yalnızca tek bir ekran prototipi olmadığını, farklı kullanıcı rollerinin gerçek iş akışlarını destekleyen uçtan uca bir sistem yapısına ulaştığını göstermektedir.",
+        "PrintForge projesi kapsamında kullanıcı, satıcı ve admin rollerini destekleyen bütünleşik bir web uygulaması geliştirilmiştir. Sistem; ürün katalogu, örnek görsel arama, AI destekli model üretimi, baskı kalite kontrolü, satıcı ürün yönetimi, favoriler, sepet, mesajlaşma ve sipariş takibi modüllerinden oluşmaktadır. Bulgular, uygulamanın yalnızca tek bir ekran prototipi olmadığını, farklı kullanıcı rollerinin gerçek iş akışlarını destekleyen uçtan uca bir sistem yapısına ulaştığını göstermektedir.",
     )
     bt.add_para(
         doc,
-        "Geliştirilen modüller kullanıcı tarafında fikir seçme, model oluşturma ve satıcıyla iletişime geçme ihtiyacını; satıcı tarafında ise ürün ekleme, katalogda yayınlama ve gelen talepleri takip etme ihtiyacını karşılamaktadır. Admin örnekleri ve internet görsel araması, AI üretim akışının başlangıç noktasını güçlendirmiştir. Bu yapı, 3D baskı hizmetini yalnızca teknik dosya üretimi olarak değil, pazaryeri ve iletişim akışıyla birlikte ele alan bir uygulama yaklaşımı sunmaktadır.",
+        "Geliştirilen modüller kullanıcı tarafında fikir seçme, model oluşturma, baskı fotoğrafını kontrol etme ve satıcıyla iletişime geçme ihtiyacını; satıcı tarafında ise ürün ekleme, katalogda yayınlama ve gelen talepleri takip etme ihtiyacını karşılamaktadır. Admin örnekleri ve internet görsel araması, AI üretim akışının başlangıç noktasını güçlendirmiştir. Kalite kontrol ekranı ise fiziksel baskı sonrasında görülebilecek hataların belgeye ve öneriye dönüştürülebileceğini göstermektedir. Bu yapı, 3D baskı hizmetini yalnızca teknik dosya üretimi olarak değil, pazaryeri, kalite gözlemi ve iletişim akışıyla birlikte ele alan bir uygulama yaklaşımı sunmaktadır.",
     )
     bt.add_figure(doc, diagrams["fig_3_1"], "Şekil 3.1. Modül tamamlama durumu", 14.0)
     rows = [
         ["Bileşen", "Çalıştırılan doğrulama", "Sonuç"],
         ["Backend", "npm run build / tsc", "Başarılı. TypeScript derlemesi tamamlandı."],
         ["Frontend", "npm run build / next build", "Başarılı. Next.js üretim derlemesi tamamlandı."],
-        ["Arayüz ekranları", "Manuel gezinme ve ekran görüntüsü kontrolü", "Ana akış ekranları başarıyla görüntülendi."],
+        ["Arayüz ekranları", "Manuel gezinme ve ekran görüntüsü kontrolü", "Ana akış ve kalite kontrol ekranları başarıyla görüntülendi."],
         ["Kullanıcı rolleri", "USER, SELLER ve ADMIN ayrımı", "Rol tabanlı menü ve sayfa akışları doğrulandı."],
     ]
     bt.add_table(
@@ -625,8 +625,8 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
         doc,
         "seller_products.png",
         "Şekil 3.7. Satıcı ürün yönetimi ekranı",
-        "Satıcı ürün yönetimi ekranı, satıcının katalogda yayınladığı ürünleri tek noktadan görmesini ve yeni ürün ekleme akışına geçmesini sağlar. Bu ekran, platformun yalnızca alıcı tarafı için değil, satıcı operasyonları için de tasarlandığını göstermektedir.",
-        "Satıcı panelinin bulunması, projenin pazaryeri boyutunu güçlendirmektedir. Ürün yönetimi alıcı arayüzünden ayrıldığı için satıcı, katalog içeriğini daha düzenli biçimde kontrol edebilmektedir.",
+        "Satıcı ürün yönetimi ekranı, satıcının katalogda yayınladığı ürünleri gerçek ürün görselleriyle birlikte tek noktadan görmesini ve düzenlemesini sağlar. Örnekte Ejderha Anahtarlık ürünü, fiyat, kategori, açıklama ve çoklu görsel küçük resimleriyle yönetilmektedir.",
+        "Bu ekranın dolu veriyle gösterilmesi, projenin pazaryeri boyutunu daha güçlü biçimde kanıtlamaktadır. Satıcı yalnızca ürün ekleme formuna sahip değildir; mevcut ürününü güncelleyebilir, fiyatını düzenleyebilir, kapak görselini değiştirebilir ve katalog içeriğini alıcı arayüzünden ayrı bir yönetim panelinde kontrol edebilir.",
     )
     add_screen_figure(
         doc,
@@ -637,10 +637,10 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
     )
     add_screen_figure(
         doc,
-        "favorites.png",
-        "Şekil 3.9. Favoriler ekranı",
-        "Favoriler ekranı, kullanıcının ilgilendiği ürünleri daha sonra incelemek üzere saklamasına olanak tanımaktadır. Bu özellik, katalog inceleme davranışını tek oturumluk bir işlem olmaktan çıkarıp kullanıcı hesabına bağlı kalıcı bir deneyime dönüştürmektedir.",
-        "Favoriler modülü, kullanıcı karar verme sürecini destekleyen yardımcı bir bileşendir. Özellikle çok sayıda katalog ürünü olduğunda kullanıcı, satın alma veya mesajlaşma kararını erteleyebilmekte ve ilgilendiği ürünleri kaybetmemektedir.",
+        "quality_control.png",
+        "Şekil 3.9. Kalite kontrol ekranı",
+        "Kalite kontrol ekranı, fiziksel baskıdan alınan fotoğrafın sistem içinde analiz edilmesine olanak tanımaktadır. Ekranda yüklenen baskı fotoğrafı, güven skoru, önem düzeyi, model kaynağı, hata sınıfları ve çözüm önerileriyle birlikte sunulmaktadır.",
+        "Bu modül, PrintForge'un yalnızca fikir ve katalog aşamasında kalmadığını, baskı sonrası kalite değerlendirmesine de genişleyebileceğini göstermektedir. Demo tahmin yapısı ileride eğitilmiş Python model servisine bağlandığında, satıcı ve kullanıcı baskı kusurlarını daha sistematik biçimde takip edebilecektir.",
     )
     add_screen_figure(
         doc,
@@ -668,13 +668,14 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
     bt.add_section_heading(doc, "3.4. Kullanıcı Akışlarına İlişkin Bulgular")
     bt.add_para(
         doc,
-        "Kullanıcı akışları incelendiğinde PrintForge'un fikir aşamasından satıcıyla iletişim aşamasına kadar kesintisiz bir deneyim sunduğu görülmektedir. Kullanıcı örnekler sayfasında bir görsel arayabilir, seçilen görselden AI üretim ekranına geçebilir, katalog ürünlerini inceleyebilir, favori veya sepet listesi oluşturabilir ve satıcıya mesaj gönderebilir. Satıcı ise ürünlerini yayınlayabilir ve sipariş takibini ayrı bir ekranda gerçekleştirebilir.",
+        "Kullanıcı akışları incelendiğinde PrintForge'un fikir aşamasından satıcıyla iletişim ve kalite kontrol aşamasına kadar kesintisiz bir deneyim sunduğu görülmektedir. Kullanıcı örnekler sayfasında bir görsel arayabilir, seçilen görselden AI üretim ekranına geçebilir, katalog ürünlerini inceleyebilir, favori veya sepet listesi oluşturabilir, baskı fotoğrafını kalite kontrol ekranında değerlendirebilir ve satıcıya mesaj gönderebilir. Satıcı ise ürünlerini yayınlayabilir ve sipariş takibini ayrı bir ekranda gerçekleştirebilir.",
     )
     rows = [
         ["Akış", "Gerçekleşen davranış", "Kullanıcı katkısı"],
         ["Örnekten AI üretime geçiş", "Görsel ve bağlam AI üretim ekranına taşınır.", "Kullanıcı boş prompt alanıyla başlamaz."],
         ["Katalog", "Ürünler arama, kategori ve fiyat filtresiyle incelenir.", "Hazır üretim seçeneklerine hızlı erişim sağlanır."],
         ["Satıcı paneli", "Ürün görseli, kategori, açıklama ve fiyat yönetilir.", "Satıcı teknik destek almadan katalog oluşturabilir."],
+        ["Kalite kontrol", "Baskı fotoğrafı hata sınıfı ve öneriyle analiz edilir.", "Fiziksel üretim sonrası karar desteği sağlanır."],
         ["Mesajlaşma", "Satıcı ve kullanıcı konuşmaları ayrı ekranda tutulur.", "Üretim öncesi iletişim izlenebilir hale gelir."],
         ["Sipariş takibi", "Gelen siparişler durum akışıyla izlenir.", "Üretim sürecinin takibi kolaylaşır."],
     ]
@@ -700,6 +701,7 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
         ["Sınırlılık", "Etkisi", "Geliştirme önerisi"],
         ["AI servis bağımlılığı", "Üretim süresi ve çıktı kalitesi dış servise bağlıdır.", "Birden fazla sağlayıcı için yedekleme mekanizması kurulabilir."],
         ["Baskı uygunluk analizi yok", "Modelin hacim, duvar kalınlığı ve destek ihtiyacı otomatik yorumlanmaz.", "STL/GLB geometri analizi ve uygunluk puanı eklenebilir."],
+        ["Kalite kontrol demo tahmini", "Mevcut ekran, eğitilmiş servis bağlanana kadar örnek tahmin mantığıyla çalışır.", "FDM hata fotoğraflarıyla eğitilen Python model servisi eklenebilir."],
         ["Telif/lisans kontrolü sınırlı", "Harici görsellerin kullanım hakkı kullanıcı sorumluluğundadır.", "Lisans filtresi ve kaynak uyarıları geliştirilebilir."],
         ["Ödeme ve lojistik entegrasyonu yok", "Sipariş akışı iletişim ve durum takibi düzeyindedir.", "Ödeme, kargo ve fatura modülleri eklenebilir."],
         ["Maliyet tahmini yok", "Kullanıcı üretim maliyetini satıcıyla konuşarak öğrenir.", "Malzeme, hacim ve doluluk oranına dayalı tahmin yapılabilir."],
@@ -750,7 +752,11 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
     )
     bt.add_para(
         doc,
-        "Beşinci adım mesajlaşma ve sipariş takibi ekranlarıdır. Bu ekranlar, kullanıcının bir ürün veya AI modeli hakkında satıcıyla iletişime geçebildiğini ve üretim sürecinin sipariş durumlarıyla takip edilebildiğini gösterir. Mesajlar ekranının sipariş ekranından ayrılması, bilgi alma konuşmaları ile aktif üretim takibinin birbirine karışmasını azaltan bilinçli bir tasarım kararıdır.",
+        "Beşinci adım kalite kontrol ekranıdır. Bu ekranda fiziksel baskı fotoğrafı üzerinden hata sınıfı, güven skoru, önem düzeyi ve çözüm önerileri gösterilir. Demo tahmin modunun açıkça belirtilmesi, akademik dürüstlük açısından önemlidir; buna rağmen ekranın eğitilebilir bir model servisine bağlanabilecek biçimde tasarlanması, projenin gelecekte üretim sonrası kalite değerlendirmesine genişleyebileceğini kanıtlar.",
+    )
+    bt.add_para(
+        doc,
+        "Altıncı adım mesajlaşma ve sipariş takibi ekranlarıdır. Bu ekranlar, kullanıcının bir ürün veya AI modeli hakkında satıcıyla iletişime geçebildiğini ve üretim sürecinin sipariş durumlarıyla takip edilebildiğini gösterir. Mesajlar ekranının sipariş ekranından ayrılması, bilgi alma konuşmaları ile aktif üretim takibinin birbirine karışmasını azaltan bilinçli bir tasarım kararıdır.",
     )
     bt.add_para(
         doc,
@@ -770,8 +776,9 @@ def add_chapter_three(doc: Document, diagrams: dict[str, Path]) -> None:
         ["2", "Örnekler ve görsel arama", "Kullanıcı modelleme bilgisi olmadan üretim fikri bulabilir."],
         ["3", "AI model üretim ekranı", "Referans görsel ve açıklama üretim görevine dönüştürülebilir."],
         ["4", "Katalog ve satıcı ürün ekleme", "Sistem pazaryeri işlevi ve satıcı operasyonu destekler."],
-        ["5", "Mesajlar ve siparişler", "Alıcı-satıcı iletişimi ve sipariş durumu izlenebilir."],
-        ["6", "Mimari ve veri modeli açıklaması", "Arayüzde görülen akışların backend ve veritabanı karşılığı vardır."],
+        ["5", "Kalite kontrol", "Baskı fotoğrafı üzerinden hata sınıfı ve çözüm önerisi üretilebilir."],
+        ["6", "Mesajlar ve siparişler", "Alıcı-satıcı iletişimi ve sipariş durumu izlenebilir."],
+        ["7", "Mimari ve veri modeli açıklaması", "Arayüzde görülen akışların backend ve veritabanı karşılığı vardır."],
     ]
     bt.add_table(
         doc,
